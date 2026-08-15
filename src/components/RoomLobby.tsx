@@ -60,12 +60,12 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
     <div className="w-full max-w-2xl mx-auto p-4 sm:p-6 text-slate-100 flex flex-col items-center">
       {/* Brand Header */}
       <div className="text-center mb-6">
-        <div className="inline-flex items-center justify-center p-3 rounded-2xl bg-gradient-to-br from-amber-500/20 to-emerald-600/20 border border-amber-500/30 mb-3 shadow-inner">
-          <div className="flex items-center gap-1.5 text-2xl font-black text-amber-400">
-            <span>♠</span>
-            <span className="text-rose-500">♥</span>
-            <span className="text-emerald-400">♣</span>
-            <span className="text-amber-500">♦</span>
+        <div className="inline-flex items-center justify-center p-3 rounded-2xl bg-slate-900 border border-slate-700 mb-3 shadow-xl">
+          <div className="flex items-center gap-2 text-2xl sm:text-3xl font-black">
+            <span className="text-slate-100 drop-shadow">♠</span>
+            <span className="text-red-500 drop-shadow">♥</span>
+            <span className="text-slate-100 drop-shadow">♣</span>
+            <span className="text-red-500 drop-shadow">♦</span>
           </div>
         </div>
 
@@ -73,7 +73,7 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
           BIG TWO
         </h1>
         <p className="text-xs sm:text-sm text-slate-400 mt-1 max-w-md mx-auto">
-          Authentic rules, real-time multiplayer, smart bot fills & tactile drag-and-drop card play.
+          Authentic rules, real-time multiplayer, smart bot fills & custom card reordering.
         </p>
       </div>
 

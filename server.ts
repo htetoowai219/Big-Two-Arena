@@ -31,6 +31,16 @@ app.use(express.json());
 const rooms: Map<string, GameState> = new Map();
 // Client sockets mapped to roomId and playerId
 const clients: Map<WebSocket, { roomId: string; playerId: string }> = new Map();
+// Bot scheduled timeouts per room
+const botTimeouts: Map<string, NodeJS.Timeout> = new Map();
+
+function clearBotTimeout(roomId: string) {
+  const existing = botTimeouts.get(roomId);
+  if (existing) {
+    clearTimeout(existing);
+    botTimeouts.delete(roomId);
+  }
+}
 
 function broadcastToRoom(roomId: string, message: WSMessage) {
   const payloadStr = JSON.stringify(message);
@@ -45,11 +55,15 @@ function broadcastToRoom(roomId: string, message: WSMessage) {
 }
 
 function initializeNewGame(state: GameState): GameState {
+  clearBotTimeout(state.roomId);
   const fullDeck = shuffleDeck(createDeck());
-  const playerCount = state.playerCount;
-  const cardsPerPlayer = Math.min(state.cardsPerPlayer, Math.floor(52 / playerCount));
+  const playerCount = Math.max(2, Math.min(4, state.playerCount || state.players.length || 4));
+  const maxAllowed = Math.floor(52 / playerCount);
+  const cardsPerPlayer = (state.cardsPerPlayer && state.cardsPerPlayer >= 3 && state.cardsPerPlayer <= maxAllowed)
+    ? state.cardsPerPlayer
+    : maxAllowed;
 
-  const updatedPlayers = state.players.map((player, index) => {
+  const updatedPlayers = state.players.slice(0, playerCount).map((player, index) => {
     const dealtCards = fullDeck.slice(index * cardsPerPlayer, (index + 1) * cardsPerPlayer);
     const sorted = sortCards(dealtCards);
     return {
@@ -60,17 +74,16 @@ function initializeNewGame(state: GameState): GameState {
     };
   });
 
-  // Check 4 Twos instant win condition
+  // Check 4 Twos instant win condition (only valid if player holds at least 4 cards)
   let instantWinner: Player | null = null;
   for (const p of updatedPlayers) {
-    if (hasFourTwos(p.cards)) {
+    if (p.cards.length >= 4 && hasFourTwos(p.cards)) {
       instantWinner = p;
       break;
     }
   }
 
-  // Determine starting player:
-  // Usually player with lowest card (Diamond 3 = lowest total rank), or first player
+  // Determine starting player: player with lowest total card (e.g. 3♦)
   let startingPlayerId = updatedPlayers[0]?.id || '';
   let lowestRankVal = Infinity;
   for (const p of updatedPlayers) {
@@ -82,6 +95,8 @@ function initializeNewGame(state: GameState): GameState {
 
   const newState: GameState = {
     ...state,
+    playerCount,
+    cardsPerPlayer,
     status: instantWinner ? 'round-over' : 'playing',
     players: updatedPlayers,
     currentTurnPlayerId: startingPlayerId,
@@ -92,12 +107,11 @@ function initializeNewGame(state: GameState): GameState {
     roundWinnerId: instantWinner ? instantWinner.id : null,
     instantWinReason: instantWinner ? `${instantWinner.name} was dealt all four 2's! Instant Victory!` : null,
     history: [],
-    roundNumber: state.roundNumber + 1,
+    roundNumber: (state.roundNumber || 0) + 1,
     updatedAt: Date.now(),
   };
 
   if (instantWinner) {
-    // Add score to winner
     const winnerInState = newState.players.find(p => p.id === instantWinner!.id);
     if (winnerInState) {
       winnerInState.score += 50;
@@ -121,7 +135,9 @@ function advanceTurn(state: GameState, playedHandCards?: any) {
 }
 
 function scheduleBotTurn(roomId: string) {
-  setTimeout(() => {
+  clearBotTimeout(roomId);
+  const timeout = setTimeout(() => {
+    botTimeouts.delete(roomId);
     const room = rooms.get(roomId);
     if (!room || room.status !== 'playing') return;
 
@@ -143,6 +159,7 @@ function scheduleBotTurn(roomId: string) {
       payload: room,
     });
   }, 750);
+  botTimeouts.set(roomId, timeout);
 }
 
 function handlePlayHand(room: GameState, playerId: string, cards: any[]): { success: boolean; error?: string } {
@@ -190,6 +207,7 @@ function handlePlayHand(room: GameState, playerId: string, cards: any[]): { succ
 
   // Check victory (player emptied cards)
   if (player.cards.length === 0) {
+    clearBotTimeout(room.roomId);
     room.status = 'round-over';
     room.roundWinnerId = player.id;
     player.score += 20;
@@ -438,6 +456,28 @@ wss.on('connection', (ws: WebSocket) => {
           const res = handlePass(room, action.playerId);
           if (!res.success) {
             ws.send(JSON.stringify({ type: 'ERROR', error: res.error }));
+          } else {
+            broadcastToRoom(room.roomId, { type: 'SYNC_STATE', payload: room });
+          }
+        }
+
+        if (action.type === 'REORDER_CARDS' && action.cards) {
+          const p = room.players.find(x => x.id === action.playerId);
+          if (p) {
+            p.cards = action.cards;
+          }
+        }
+
+        if (action.type === 'LEAVE_ROOM') {
+          clients.delete(ws);
+          const p = room.players.find(x => x.id === action.playerId);
+          if (p) {
+            p.connected = false;
+          }
+          const connectedHumans = room.players.filter(x => !x.isBot && x.connected);
+          if (connectedHumans.length === 0) {
+            clearBotTimeout(room.roomId);
+            rooms.delete(room.roomId);
           } else {
             broadcastToRoom(room.roomId, { type: 'SYNC_STATE', payload: room });
           }

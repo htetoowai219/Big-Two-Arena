@@ -71,14 +71,14 @@ export const RuleGuideModal: React.FC<RuleGuideModalProps> = ({ isOpen, onClose 
 
               <div className="pt-2 border-t border-slate-800">
                 <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider block">Suit Priority (High to Low):</span>
-                <div className="flex items-center gap-2 mt-1 font-bold text-sm">
-                  <span className="text-slate-100 bg-slate-800 px-2 py-0.5 rounded">♠ Spades</span>
+                <div className="flex flex-wrap items-center gap-2 mt-1 font-bold text-sm">
+                  <span className="text-slate-100 bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-700">♠ Spades</span>
                   <span>&gt;</span>
-                  <span className="text-rose-500 bg-rose-950/40 px-2 py-0.5 rounded border border-rose-800/40">♥ Hearts</span>
+                  <span className="text-red-500 bg-red-950/40 px-2.5 py-1 rounded-lg border border-red-800/40">♥ Hearts</span>
                   <span>&gt;</span>
-                  <span className="text-emerald-400 bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-800/40">♣ Clubs</span>
+                  <span className="text-slate-100 bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-700">♣ Clubs</span>
                   <span>&gt;</span>
-                  <span className="text-amber-500 bg-amber-950/40 px-2 py-0.5 rounded border border-amber-800/40">♦ Diamonds</span>
+                  <span className="text-red-500 bg-red-950/40 px-2.5 py-1 rounded-lg border border-red-800/40">♦ Diamonds</span>
                 </div>
               </div>
             </div>

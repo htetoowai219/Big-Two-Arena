@@ -22,6 +22,7 @@ import { PlayerHand } from './components/PlayerHand';
 import { RuleGuideModal } from './components/RuleGuideModal';
 import { GameScoreboard } from './components/GameScoreboard';
 import { EmoteBar } from './components/EmoteBar';
+import { GameHistory } from './components/GameHistory';
 
 const LOCAL_STORAGE_PLAYER_KEY = 'bigtwo_player_profile';
 const LOCAL_STORAGE_GAME_STATE_KEY = 'bigtwo_last_game_state';
@@ -66,6 +67,7 @@ export default function App() {
   const [selectedCardIds, setSelectedCardIds] = useState<Set<string>>(new Set());
   const [hintPlayableCardIds, setHintPlayableCardIds] = useState<Set<string>>(new Set());
   const [isRulesModalOpen, setIsRulesModalOpen] = useState(false);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [activeEmotes, setActiveEmotes] = useState<Record<string, string>>({});
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -387,6 +389,33 @@ export default function App() {
     }
   };
 
+  const handleReorderCards = (sourceIndex: number, targetIndex: number) => {
+    if (!myPlayer || !gameState) return;
+    const newCards = [...myPlayer.cards];
+    const [movedCard] = newCards.splice(sourceIndex, 1);
+    newCards.splice(targetIndex, 0, movedCard);
+
+    sound.playCardSelect();
+    const updatedPlayers = gameState.players.map(p => {
+      if (p.id === myPlayerId) {
+        return { ...p, cards: newCards };
+      }
+      return p;
+    });
+    setGameState({ ...gameState, players: updatedPlayers });
+
+    // Sync card order to server
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      const action: ClientAction = {
+        type: 'REORDER_CARDS',
+        roomId: gameState.roomId,
+        playerId: myPlayerId,
+        cards: newCards,
+      };
+      wsRef.current.send(JSON.stringify({ type: 'ACTION', payload: action }));
+    }
+  };
+
   const handleNextRound = () => {
     if (!gameState) return;
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
@@ -401,6 +430,14 @@ export default function App() {
   };
 
   const handleReturnToLobby = () => {
+    if (gameState && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      const action: ClientAction = {
+        type: 'LEAVE_ROOM',
+        roomId: gameState.roomId,
+        playerId: myPlayerId,
+      };
+      wsRef.current.send(JSON.stringify({ type: 'ACTION', payload: action }));
+    }
     setGameState(null);
     try {
       localStorage.removeItem(LOCAL_STORAGE_GAME_STATE_KEY);
@@ -487,6 +524,9 @@ export default function App() {
       <GameHeader
         roomId={gameState.roomId}
         roundNumber={gameState.roundNumber}
+        historyCount={gameState.history?.length || 0}
+        isHistoryOpen={isHistoryOpen}
+        onToggleHistory={() => setIsHistoryOpen(prev => !prev)}
         onOpenRules={() => setIsRulesModalOpen(true)}
         onLeaveRoom={handleReturnToLobby}
         onRestartRound={handleNextRound}
@@ -500,10 +540,10 @@ export default function App() {
         </div>
       )}
 
-      {/* Game Table Arena */}
-      <div className="flex-1 w-full max-w-6xl mx-auto px-2 sm:px-4 py-2 flex flex-col justify-between relative">
+      {/* Game Table Arena with Optional History Log Beside Table */}
+      <div className="flex-1 w-full max-w-7xl mx-auto px-2 sm:px-4 py-1 sm:py-2 flex flex-col justify-between relative">
         {/* Top Opponent Seat (if present) */}
-        <div className="w-full flex justify-center py-1">
+        <div className="w-full flex justify-center py-0.5 sm:py-1">
           {positionedOpponents
             .filter(o => o.position === 'top')
             .map(o => (
@@ -517,10 +557,10 @@ export default function App() {
             ))}
         </div>
 
-        {/* Center Arena with Left/Right Opponents & Center Table Dropzone */}
-        <div className="w-full flex items-center justify-between gap-2 sm:gap-4 my-auto">
+        {/* Center Arena with Left/Right Opponents, Center Table Dropzone, and Desktop History Sidebar */}
+        <div className="w-full flex items-center justify-between gap-1.5 sm:gap-4 my-auto">
           {/* Left Opponent */}
-          <div className="flex flex-col items-center justify-center min-w-[90px] sm:min-w-[120px]">
+          <div className="flex flex-col items-center justify-center min-w-[75px] xs:min-w-[90px] sm:min-w-[120px]">
             {positionedOpponents
               .filter(o => o.position === 'left')
               .map(o => (
@@ -535,7 +575,7 @@ export default function App() {
           </div>
 
           {/* Center Felt Table Dropzone */}
-          <div className="flex-1 flex justify-center">
+          <div className="flex-1 flex justify-center max-w-2xl">
             <TableDropZone
               lastPlayedHand={gameState.lastPlayedHand}
               currentTurnPlayer={currentTurnPlayer}
@@ -554,7 +594,7 @@ export default function App() {
           </div>
 
           {/* Right Opponent */}
-          <div className="flex flex-col items-center justify-center min-w-[90px] sm:min-w-[120px]">
+          <div className="flex flex-col items-center justify-center min-w-[75px] xs:min-w-[90px] sm:min-w-[120px]">
             {positionedOpponents
               .filter(o => o.position === 'right')
               .map(o => (
@@ -567,10 +607,17 @@ export default function App() {
                 />
               ))}
           </div>
+
+          {/* Desktop History Sidebar beside Table */}
+          {gameState.history && (
+            <div className="hidden xl:block w-64 flex-shrink-0 ml-2">
+              <GameHistory history={gameState.history} />
+            </div>
+          )}
         </div>
 
         {/* Floating Quick Emote Bar */}
-        <div className="w-full flex justify-center py-1">
+        <div className="w-full flex justify-center py-0.5 sm:py-1">
           <EmoteBar onSendEmote={handleSendEmote} />
         </div>
 
@@ -584,11 +631,23 @@ export default function App() {
             onToggleCard={handleToggleCard}
             onSortCards={handleSortCards}
             onClearSelection={handleClearSelection}
-            onCardDragStart={handleCardDragStart}
-            onCardDragEnd={handleCardDragEnd}
+            onReorderCards={handleReorderCards}
           />
         )}
       </div>
+
+      {/* Mobile / Toggleable History Drawer / Modal */}
+      {isHistoryOpen && (
+        <div className="fixed inset-0 z-40 bg-slate-950/80 backdrop-blur-sm flex items-end sm:items-center justify-center p-3">
+          <div className="w-full max-w-md animate-in slide-in-from-bottom duration-200">
+            <GameHistory
+              history={gameState.history || []}
+              isOpenMobile={true}
+              onCloseMobile={() => setIsHistoryOpen(false)}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Rules Guide Modal */}
       <RuleGuideModal

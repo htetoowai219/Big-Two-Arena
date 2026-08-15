@@ -18,10 +18,10 @@ export const SUIT_NAMES: Record<Suit, string> = {
 };
 
 export const SUIT_COLORS: Record<Suit, string> = {
-  diamonds: 'text-amber-600 dark:text-amber-500',
-  clubs: 'text-emerald-700 dark:text-emerald-400',
-  hearts: 'text-rose-600 dark:text-rose-500',
-  spades: 'text-slate-900 dark:text-slate-100',
+  diamonds: 'text-red-600 dark:text-red-500',
+  clubs: 'text-slate-950 dark:text-slate-100',
+  hearts: 'text-red-600 dark:text-red-500',
+  spades: 'text-slate-950 dark:text-slate-100',
 };
 
 export const SUIT_VALUES: Record<Suit, number> = {

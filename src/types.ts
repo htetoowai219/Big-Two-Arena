@@ -67,7 +67,7 @@ export interface GameState {
 }
 
 export interface ClientAction {
-  type: 'PLAY_HAND' | 'PASS' | 'START_GAME' | 'UPDATE_SETTINGS' | 'RESTART_ROUND' | 'ADD_BOT' | 'KICK_BOT';
+  type: 'PLAY_HAND' | 'PASS' | 'START_GAME' | 'UPDATE_SETTINGS' | 'RESTART_ROUND' | 'ADD_BOT' | 'KICK_BOT' | 'LEAVE_ROOM' | 'REORDER_CARDS';
   roomId: string;
   playerId: string;
   cards?: Card[];

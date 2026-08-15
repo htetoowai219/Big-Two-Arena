@@ -52,21 +52,18 @@ export const PlayingCard: React.FC<PlayingCardProps> = ({
     );
   }
 
-  // Color mapping
+  // Color mapping strictly red (hearts, diamonds) and black (spades, clubs)
   const isRed = card.suit === 'hearts' || card.suit === 'diamonds';
   const suitSymbol = SUIT_SYMBOLS[card.suit];
 
-  const suitColorClass = {
-    spades: 'text-slate-900 dark:text-slate-100',
-    hearts: 'text-rose-600 dark:text-rose-500',
-    clubs: 'text-emerald-700 dark:text-emerald-400',
-    diamonds: 'text-amber-600 dark:text-amber-500',
-  }[card.suit];
+  const suitColorClass = isRed
+    ? 'text-red-600'
+    : 'text-slate-950';
 
   const sizeClasses = {
-    sm: 'w-10 h-14 text-xs rounded-md',
-    md: 'w-14 h-20 sm:w-16 sm:h-24 sm:text-base text-sm rounded-lg',
-    lg: 'w-18 h-26 sm:w-20 sm:h-28 text-lg rounded-xl',
+    sm: 'w-9 h-13 sm:w-10 sm:h-14 text-xs rounded-md',
+    md: 'w-[52px] h-[76px] sm:w-16 sm:h-24 text-sm sm:text-base rounded-lg',
+    lg: 'w-16 h-24 sm:w-20 sm:h-28 text-base sm:text-lg rounded-xl',
   }[size];
 
   return (
@@ -79,12 +76,12 @@ export const PlayingCard: React.FC<PlayingCardProps> = ({
       style={{ touchAction: 'manipulation' }}
       className={`
         ${sizeClasses}
-        relative bg-white dark:bg-slate-900 border-2 select-none cursor-pointer flex-shrink-0
+        relative bg-white border-2 select-none cursor-pointer flex-shrink-0
         transition-all duration-150 ease-out flex flex-col justify-between p-1 sm:p-1.5
         ${selected 
-          ? '-translate-y-4 shadow-xl border-amber-500 ring-2 ring-amber-400/60 dark:ring-amber-500/50 bg-amber-50/50 dark:bg-amber-950/30 z-20' 
-          : 'shadow-md border-slate-200 dark:border-slate-700 hover:-translate-y-1 hover:shadow-lg'}
-        ${!isPlayable ? 'opacity-60 grayscale-[30%]' : ''}
+          ? '-translate-y-3 sm:-translate-y-4 shadow-2xl border-amber-500 ring-2 ring-amber-400/90 bg-amber-50/90 z-30 scale-105' 
+          : 'shadow-md border-slate-300 dark:border-slate-400 hover:-translate-y-1 hover:shadow-lg'}
+        ${!isPlayable ? 'opacity-50 grayscale-[40%]' : ''}
         ${draggable ? 'active:cursor-grabbing hover:cursor-grab' : ''}
         ${className}
       `}
@@ -92,27 +89,27 @@ export const PlayingCard: React.FC<PlayingCardProps> = ({
     >
       {/* Top Left Rank + Suit */}
       <div className={`flex flex-col items-center leading-none ${suitColorClass}`}>
-        <span className="font-extrabold tracking-tighter text-xs sm:text-sm">{card.rank}</span>
-        <span className="text-xs sm:text-sm font-bold">{suitSymbol}</span>
+        <span className="font-black tracking-tight text-xs sm:text-sm">{card.rank}</span>
+        <span className="text-xs sm:text-sm font-black leading-none">{suitSymbol}</span>
       </div>
 
-      {/* Center Large Suit Symbol or Face Pattern */}
+      {/* Center Large Distinct Suit Symbol */}
       <div className={`absolute inset-0 flex items-center justify-center pointer-events-none ${suitColorClass}`}>
-        <span className="text-xl sm:text-2xl font-bold opacity-85">
+        <span className="text-xl sm:text-2xl font-black opacity-90 select-none">
           {suitSymbol}
         </span>
       </div>
 
       {/* Bottom Right Inverted Rank + Suit */}
       <div className={`flex flex-col items-center leading-none rotate-180 ${suitColorClass}`}>
-        <span className="font-extrabold tracking-tighter text-xs sm:text-sm">{card.rank}</span>
-        <span className="text-xs sm:text-sm font-bold">{suitSymbol}</span>
+        <span className="font-black tracking-tight text-xs sm:text-sm">{card.rank}</span>
+        <span className="text-xs sm:text-sm font-black leading-none">{suitSymbol}</span>
       </div>
 
       {/* Special indicator for the '2' cards (Big Two hierarchy high cards) */}
       {card.rank === '2' && (
-        <div className="absolute -top-1.5 -right-1.5 bg-amber-500 text-slate-950 rounded-full w-4 h-4 flex items-center justify-center text-[9px] font-black shadow">
-          ★
+        <div className="absolute -top-1.5 -right-1.5 bg-amber-500 text-slate-950 rounded-full w-4 h-4 flex items-center justify-center text-[9px] font-black shadow border border-amber-300">
+          2★
         </div>
       )}
     </div>
