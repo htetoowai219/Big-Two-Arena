@@ -1,0 +1,6 @@
+{
+  "name": "Big Two Card Game",
+  "description": "Real-time multiplayer Big Two card game featuring smooth drag-and-drop gameplay, customizable player counts and card deals, authentic hand rankings, and game state persistence.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
