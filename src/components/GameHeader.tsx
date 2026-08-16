@@ -92,14 +92,14 @@ export const GameHeader: React.FC<GameHeaderProps> = ({
           </button>
         )}
 
-        {isHost && (
+        {isHost && roundNumber > 0 && (
           <button
             onClick={onRestartRound}
-            className="hidden sm:inline-flex p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-amber-300 border border-slate-700 transition cursor-pointer text-xs items-center gap-1"
+            className="inline-flex p-2 sm:px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-amber-300 border border-slate-700 transition cursor-pointer text-xs items-center gap-1"
             title="Redeal / Restart Round"
           >
             <RotateCcw className="w-4 h-4" />
-            <span className="hidden sm:inline">Redeal</span>
+            <span className="hidden md:inline">Redeal</span>
           </button>
         )}
 

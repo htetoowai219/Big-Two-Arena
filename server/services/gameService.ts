@@ -71,7 +71,7 @@ class GameService {
     this.scheduleOrClear(room);
   }
 
-  private createRoom(roomId: string, player: Player, config: { playerCount?: number; cardsPerPlayer?: number; autoFillBots?: boolean }) {
+  private createRoom(roomId: string, player: Player, config: { playerCount?: number; cardsPerPlayer?: number; autoFillBots?: boolean; turnOrderMode?: string; manualTurnOrder?: string[] }) {
     const pCount = config?.playerCount || 4;
     const cPerPlayer = config?.cardsPerPlayer || Math.min(13, Math.floor(52 / pCount));
     const autoBots = config?.autoFillBots ?? true;
@@ -83,6 +83,8 @@ class GameService {
       playerCount: pCount,
       cardsPerPlayer: cPerPlayer,
       autoFillBots: autoBots,
+      turnOrderMode: config?.turnOrderMode === 'manual' ? 'manual' : 'random',
+      manualTurnOrder: config?.turnOrderMode === 'manual' ? (config?.manualTurnOrder || []) : [],
       status: 'lobby',
       players: [{ ...player, isHost: true, connected: true }],
       currentTurnPlayerId: '',
@@ -204,6 +206,15 @@ class GameService {
       }
     }
 
+    if (action.type === 'SET_TURN_ORDER' && Array.isArray(action.turnOrder)) {
+      if (room.hostId === action.playerId && room.status === 'lobby') {
+        room.turnOrderMode = 'manual';
+        room.manualTurnOrder = action.turnOrder;
+        room.updatedAt = Date.now();
+        this.sync(room);
+      }
+    }
+
     if (action.type === 'START_GAME' || action.type === 'RESTART_ROUND') {
       if (room.hostId === action.playerId || room.status === 'round-over') {
         // Fill any missing spots with bots if needed before starting
@@ -211,6 +222,25 @@ class GameService {
           while (room.players.length < room.playerCount) {
             const bIdx = room.players.length - 1;
             room.players.push(makeBot(`bot_${Date.now()}_${bIdx}`, bIdx));
+          }
+        }
+
+        // Rooms created without AI fill must wait for the other human players
+        // to join (and stay connected) before the first hand can be dealt.
+        if (!room.autoFillBots) {
+          const humans = room.players.filter(p => !p.isBot);
+          const allSeatsFilled = room.players.length >= room.playerCount;
+          const allConnected = humans.length > 0 && humans.every(h => h.connected);
+          if (!allSeatsFilled || !allConnected) {
+            const missing = Math.max(0, room.playerCount - room.players.length);
+            this.sendError(
+              ws,
+              missing > 0
+                ? `Waiting for ${missing} more player${missing > 1 ? 's' : ''} to join before dealing.`
+                : 'Not all players are connected. Waiting for them to rejoin.',
+              'NOT_ENOUGH_PLAYERS',
+            );
+            return;
           }
         }
 

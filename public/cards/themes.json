@@ -1,0 +1,19 @@
+{
+  "themes": [
+    {
+      "id": "default",
+      "name": "Classic",
+      "ext": "svg"
+    },
+    {
+      "id": "pixel",
+      "name": "Pixel",
+      "ext": "svg"
+    },
+    {
+      "id": "cute",
+      "name": "Cute",
+      "ext": "svg"
+    }
+  ]
+}

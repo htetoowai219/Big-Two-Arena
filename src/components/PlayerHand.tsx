@@ -63,7 +63,13 @@ export const PlayerHand: React.FC<PlayerHandProps> = ({
 
   // Shared card fan renderer. `offset` maps a card's position within the fan
   // back to its index in the full hand (used for drag-and-drop reordering).
-  const renderCardFan = (cards: Card[], offset: number, draggable: boolean, spaceClass: string) => (
+  const renderCardFan = (
+    cards: Card[],
+    offset: number,
+    draggable: boolean,
+    spaceClass: string,
+    fanRotate = false,
+  ) => (
     <div className={`flex items-end justify-center ${spaceClass}`}>
       {cards.map((card, i) => {
         const index = offset + i;
@@ -82,7 +88,9 @@ export const PlayerHand: React.FC<PlayerHandProps> = ({
               zIndex: isSelected ? 40 : index + 1,
             }}
             className={`
-              transition-all duration-150 relative
+              transition-all duration-150 relative origin-bottom
+              ${fanRotate && i === 0 && cards.length > 1 ? 'rotate-[-5deg]' : ''}
+              ${fanRotate && i === cards.length - 1 && cards.length > 1 ? 'rotate-[5deg]' : ''}
               ${isDropTarget ? 'scale-110 -translate-y-2 ring-2 ring-blue-400 rounded-lg' : ''}
               ${isBeingDragged ? 'opacity-40 scale-95' : ''}
             `}
@@ -104,8 +112,15 @@ export const PlayerHand: React.FC<PlayerHandProps> = ({
   );
 
   // Mobile: split the hand into two rows so a big hand never needs to scroll.
-  const mobileHalf = Math.ceil(player.cards.length / 2);
-  const mobileRows = [player.cards.slice(0, mobileHalf), player.cards.slice(mobileHalf)];
+  // Selected cards are pulled out of the fan into a tray above the rows so a
+  // lifted card never covers its neighbors.
+  const mobileSelectedCards = player.cards.filter((card) => selectedCardIds.has(card.id));
+  const mobileUnselectedCards = player.cards.filter((card) => !selectedCardIds.has(card.id));
+  const mobileHalf = Math.ceil(mobileUnselectedCards.length / 2);
+  const mobileRows = [
+    mobileUnselectedCards.slice(0, mobileHalf),
+    mobileUnselectedCards.slice(mobileHalf),
+  ].filter((row) => row.length > 0);
 
   return (
     <div className="w-full flex flex-col items-center select-none pt-1 pb-2 sm:pb-3 px-2 sm:px-4">
@@ -174,10 +189,17 @@ export const PlayerHand: React.FC<PlayerHandProps> = ({
 
           {/* Mobile: two stacked rows, no horizontal scroll, count beside each row */}
           <div className="sm:hidden w-full flex flex-col items-center gap-1.5 pt-2 pb-1 px-1">
+            {mobileSelectedCards.length > 0 && (
+              <div className="w-full flex justify-center">
+                <div className="rounded-xl border border-dashed border-amber-400/50 bg-amber-500/10 px-1 py-0.5">
+                  {renderCardFan(mobileSelectedCards, 0, false, '-space-x-4')}
+                </div>
+              </div>
+            )}
             {mobileRows.map((row, rowIndex) => (
               <div key={rowIndex} className="w-full flex items-center justify-center gap-1">
                 <div className="flex items-end justify-center">
-                  {renderCardFan(row, rowIndex * mobileHalf, false, '-space-x-6')}
+                  {renderCardFan(row, rowIndex * mobileHalf, false, '-space-x-6', true)}
                 </div>
                 <span className="shrink-0 self-center bg-slate-800 text-amber-300 font-mono text-[10px] font-bold px-1.5 py-0.5 rounded-full border border-slate-700">
                   {row.length}
