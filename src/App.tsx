@@ -6,6 +6,7 @@ import {
   PlayedHand,
   WSMessage,
   ClientAction,
+  RoomConfig,
 } from './types';
 import {
   evaluateHand,
@@ -14,7 +15,9 @@ import {
   sortCards,
 } from './utils/cardUtils';
 import { sound } from './utils/soundUtils';
+import { CardThemeProvider } from './context/CardThemeContext';
 import { RoomLobby } from './components/RoomLobby';
+import { RoomWaitingLobby } from './components/RoomWaitingLobby';
 import { GameHeader } from './components/GameHeader';
 import { OpponentSeat } from './components/OpponentSeat';
 import { TableDropZone } from './components/TableDropZone';
@@ -73,6 +76,7 @@ export default function App() {
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [handSortAscending, setHandSortAscending] = useState(true);
+  const [isCreatingRoom, setIsCreatingRoom] = useState(false);
 
   // WebSocket reference
   const wsRef = useRef<WebSocket | null>(null);
@@ -146,6 +150,7 @@ export default function App() {
             if (data.type === 'SYNC_STATE' && data.payload) {
               const updatedState: GameState = data.payload;
               setGameState(updatedState);
+              setIsCreatingRoom(false);
               // Save state after every turn
               try {
                 localStorage.setItem(LOCAL_STORAGE_GAME_STATE_KEY, JSON.stringify(updatedState));
@@ -165,6 +170,7 @@ export default function App() {
 
             if (data.type === 'ERROR' && data.error) {
               sound.playInvalid();
+              setIsCreatingRoom(false);
               setErrorMessage(data.error);
               setTimeout(() => setErrorMessage(null), 3000);
 
@@ -243,7 +249,7 @@ export default function App() {
   }, [gameState, myPlayerId]);
 
   // Actions
-  const handleCreateRoom = (config: { playerCount: number; cardsPerPlayer: number; autoFillBots: boolean }) => {
+  const handleCreateRoom = (config: RoomConfig) => {
     const newRoomId = `B2-${Math.floor(1000 + Math.random() * 9000)}`;
     const me: Player = {
       id: myPlayerId,
@@ -259,6 +265,7 @@ export default function App() {
     };
 
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      setIsCreatingRoom(true);
       wsRef.current.send(JSON.stringify({
         type: 'PLAYER_JOINED',
         payload: {
@@ -268,17 +275,46 @@ export default function App() {
         },
       }));
 
-      // Immediately request START_GAME
-      setTimeout(() => {
-        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-          const action: ClientAction = {
-            type: 'START_GAME',
-            roomId: newRoomId,
-            playerId: myPlayerId,
-          };
-          wsRef.current.send(JSON.stringify({ type: 'ACTION', payload: action }));
-        }
-      }, 300);
+      // Rooms that fill seats with AI bots (random turn order) deal the first
+      // hand immediately. Rooms created without AI fill, or with a manual turn
+      // order, wait in the lobby until the host starts the game.
+      if (config.autoFillBots && config.turnOrderMode !== 'manual') {
+        setTimeout(() => {
+          if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+            const action: ClientAction = {
+              type: 'START_GAME',
+              roomId: newRoomId,
+              playerId: myPlayerId,
+            };
+            wsRef.current.send(JSON.stringify({ type: 'ACTION', payload: action }));
+          }
+        }, 300);
+      }
+    }
+  };
+
+  const handleStartGame = () => {
+    if (!gameState) return;
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      const action: ClientAction = {
+        type: 'START_GAME',
+        roomId: gameState.roomId,
+        playerId: myPlayerId,
+      };
+      wsRef.current.send(JSON.stringify({ type: 'ACTION', payload: action }));
+    }
+  };
+
+  const handleSetTurnOrder = (turnOrder: string[]) => {
+    if (!gameState) return;
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      const action: ClientAction = {
+        type: 'SET_TURN_ORDER',
+        roomId: gameState.roomId,
+        playerId: myPlayerId,
+        turnOrder,
+      };
+      wsRef.current.send(JSON.stringify({ type: 'ACTION', payload: action }));
     }
   };
 
@@ -513,40 +549,82 @@ export default function App() {
     return gameState.players.find(p => p.id === gameState.currentTurnPlayerId) || null;
   }, [gameState]);
 
-  // If no active game state or in lobby, show Lobby setup
-  if (!gameState || gameState.status === 'lobby') {
+  // If no active game state, show the create/join Lobby setup
+  if (!gameState) {
     return (
-      <main className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between">
-        <GameHeader
-          roomId={gameState?.roomId || 'OFFLINE'}
-          roundNumber={0}
-          onOpenRules={() => setIsRulesModalOpen(true)}
-          onLeaveRoom={handleReturnToLobby}
-          onRestartRound={() => {}}
-          isHost={true}
-        />
+      <CardThemeProvider>
+        <main className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between">
+          <GameHeader
+            roomId="OFFLINE"
+            roundNumber={0}
+            onOpenRules={() => setIsRulesModalOpen(true)}
+            onLeaveRoom={handleReturnToLobby}
+            onRestartRound={() => {}}
+            isHost={true}
+          />
 
-        <div className="flex-1 flex items-center justify-center py-6 px-3">
-          <RoomLobby
-            playerName={playerName}
-            onUpdatePlayer={handleUpdatePlayer}
-            onCreateRoom={handleCreateRoom}
-            onJoinRoom={handleJoinRoom}
-            activeRoomId={gameState?.roomId}
+          <div className="flex-1 flex items-center justify-center py-6 px-3">
+            {isCreatingRoom ? (
+              <div className="text-center text-slate-300 text-sm font-semibold animate-pulse">
+                Creating room…
+              </div>
+            ) : (
+              <RoomLobby
+                playerName={playerName}
+                onUpdatePlayer={handleUpdatePlayer}
+                onCreateRoom={handleCreateRoom}
+                onJoinRoom={handleJoinRoom}
+                activeRoomId={null}
+                isHost={false}
+              />
+            )}
+          </div>
+
+          <RuleGuideModal
+            isOpen={isRulesModalOpen}
+            onClose={() => setIsRulesModalOpen(false)}
+          />
+        </main>
+      </CardThemeProvider>
+    );
+  }
+
+  // Active room waiting in the lobby (players still joining / manual turn order)
+  if (gameState.status === 'lobby') {
+    return (
+      <CardThemeProvider>
+        <main className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between">
+          <GameHeader
+            roomId={gameState.roomId}
+            roundNumber={0}
+            onOpenRules={() => setIsRulesModalOpen(true)}
+            onLeaveRoom={handleReturnToLobby}
+            onRestartRound={() => {}}
             isHost={isHost}
           />
-        </div>
 
-        <RuleGuideModal
-          isOpen={isRulesModalOpen}
-          onClose={() => setIsRulesModalOpen(false)}
-        />
-      </main>
+          <div className="flex-1 flex items-center justify-center py-6 px-3">
+            <RoomWaitingLobby
+              gameState={gameState}
+              myPlayerId={myPlayerId}
+              isHost={isHost}
+              onStartGame={handleStartGame}
+              onSetTurnOrder={handleSetTurnOrder}
+            />
+          </div>
+
+          <RuleGuideModal
+            isOpen={isRulesModalOpen}
+            onClose={() => setIsRulesModalOpen(false)}
+          />
+        </main>
+      </CardThemeProvider>
     );
   }
 
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between overflow-x-hidden select-none">
+    <CardThemeProvider>
+      <main className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between overflow-x-hidden select-none">
       {/* Top Header */}
       <GameHeader
         roomId={gameState.roomId}
@@ -699,6 +777,7 @@ export default function App() {
           onReturnToLobby={handleReturnToLobby}
         />
       )}
-    </main>
+      </main>
+    </CardThemeProvider>
   );
 }

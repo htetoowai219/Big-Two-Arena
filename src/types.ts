@@ -45,6 +45,8 @@ export interface Player {
 
 export type GameStatus = 'lobby' | 'playing' | 'round-over' | 'game-over';
 
+export type TurnOrderMode = 'random' | 'manual';
+
 export interface PassEntry {
   kind: 'pass';
   playerId: string;
@@ -61,6 +63,8 @@ export interface GameState {
   playerCount: number; // 2, 3, or 4
   cardsPerPlayer: number; // 1 to 52 / playerCount
   autoFillBots: boolean;
+  turnOrderMode?: TurnOrderMode; // 'random' (default) or 'manual' (host picks 1st/2nd/3rd/4th)
+  manualTurnOrder?: string[]; // player ids in play order (1st → last) when turnOrderMode === 'manual'
   status: GameStatus;
   players: Player[];
   currentTurnPlayerId: string;
@@ -75,11 +79,19 @@ export interface GameState {
   updatedAt: number;
 }
 
+export interface RoomConfig {
+  playerCount: number;
+  cardsPerPlayer: number;
+  autoFillBots: boolean;
+  turnOrderMode?: TurnOrderMode;
+}
+
 export interface ClientAction {
-  type: 'PLAY_HAND' | 'PASS' | 'START_GAME' | 'UPDATE_SETTINGS' | 'RESTART_ROUND' | 'ADD_BOT' | 'KICK_BOT' | 'LEAVE_ROOM' | 'REORDER_CARDS';
+  type: 'PLAY_HAND' | 'PASS' | 'START_GAME' | 'UPDATE_SETTINGS' | 'RESTART_ROUND' | 'ADD_BOT' | 'KICK_BOT' | 'LEAVE_ROOM' | 'REORDER_CARDS' | 'SET_TURN_ORDER';
   roomId: string;
   playerId: string;
   cards?: Card[];
+  turnOrder?: string[];
   settings?: {
     playerCount: number;
     cardsPerPlayer: number;

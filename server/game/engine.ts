@@ -15,6 +15,21 @@ import {
 // metadata; they have no knowledge of sockets, databases, or bot timers — the
 // game service layer owns that orchestration.
 
+// Resolves the ordered list of player ids that turns advance through. With
+// 'manual' turn order the host's picked order (1st/2nd/3rd/4th) is honored;
+// any seats not yet assigned fall back to the natural seat order so the game
+// always starts. Otherwise the natural seat order is used.
+export function resolveTurnOrder(state: GameState): string[] {
+  const players = state.players || [];
+  if (state.turnOrderMode === 'manual' && Array.isArray(state.manualTurnOrder)) {
+    const valid = state.manualTurnOrder.filter(id => players.some(p => p.id === id));
+    if (valid.length === players.length) return valid;
+    const remaining = players.filter(p => !valid.includes(p.id)).map(p => p.id);
+    return [...valid, ...remaining];
+  }
+  return players.map(p => p.id);
+}
+
 export function initializeNewGame(state: GameState): GameState {
   const fullDeck = shuffleDeck(createDeck());
   const playerCount = Math.max(2, Math.min(4, state.playerCount || state.players.length || 4));
@@ -43,13 +58,17 @@ export function initializeNewGame(state: GameState): GameState {
     }
   }
 
-  // Determine starting player: player with lowest total card (e.g. 3♦)
-  let startingPlayerId = updatedPlayers[0]?.id || '';
-  let lowestRankVal = Infinity;
-  for (const p of updatedPlayers) {
-    if (p.cards.length > 0 && p.cards[0].totalRank < lowestRankVal) {
-      lowestRankVal = p.cards[0].totalRank;
-      startingPlayerId = p.id;
+  // Determine starting player: with manual turn order the first listed player
+  // leads; otherwise the player holding the lowest card (e.g. 3♦) leads.
+  const turnOrder = resolveTurnOrder({ ...state, players: updatedPlayers });
+  let startingPlayerId = turnOrder[0] || updatedPlayers[0]?.id || '';
+  if (!state.turnOrderMode || state.turnOrderMode === 'random') {
+    let lowestRankVal = Infinity;
+    for (const p of updatedPlayers) {
+      if (p.cards.length > 0 && p.cards[0].totalRank < lowestRankVal) {
+        lowestRankVal = p.cards[0].totalRank;
+        startingPlayerId = p.id;
+      }
     }
   }
 
@@ -82,11 +101,11 @@ export function initializeNewGame(state: GameState): GameState {
 }
 
 function advanceTurn(state: GameState) {
-  const activePlayers = state.players;
-  const currentIndex = activePlayers.findIndex(p => p.id === state.currentTurnPlayerId);
+  const order = resolveTurnOrder(state);
+  const currentIndex = order.indexOf(state.currentTurnPlayerId);
 
-  const nextIndex = (currentIndex + 1) % activePlayers.length;
-  state.currentTurnPlayerId = activePlayers[nextIndex].id;
+  const nextIndex = (currentIndex + 1) % order.length;
+  state.currentTurnPlayerId = order[nextIndex];
   state.updatedAt = Date.now();
 }
 

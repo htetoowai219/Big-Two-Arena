@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
-import { Users, Bot, Play, LogIn, Shield } from 'lucide-react';
+import { Users, Bot, Play, LogIn, Shield, Shuffle, ListOrdered, Palette } from 'lucide-react';
+import { RoomConfig, TurnOrderMode } from '../types';
+import { useCardTheme } from '../context/CardThemeContext';
 
 interface RoomLobbyProps {
   playerName: string;
   onUpdatePlayer: (name: string) => void;
-  onCreateRoom: (config: { playerCount: number; cardsPerPlayer: number; autoFillBots: boolean }) => void;
+  onCreateRoom: (config: RoomConfig) => void;
   onJoinRoom: (roomId: string) => void;
   activeRoomId?: string | null;
   isHost?: boolean;
@@ -21,7 +23,10 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
   const [playerCount, setPlayerCount] = useState<number>(4);
   const [cardsPerPlayer, setCardsPerPlayer] = useState<number>(13);
   const [autoFillBots, setAutoFillBots] = useState<boolean>(true);
+  const [turnOrderMode, setTurnOrderMode] = useState<TurnOrderMode>('random');
   const [joinRoomInput, setJoinRoomInput] = useState<string>('');
+
+  const { themes, theme, setThemeId } = useCardTheme();
 
   // Maximum allowed cards per player based on selected player count
   const maxCardsForPlayerCount = Math.floor(52 / playerCount);
@@ -41,6 +46,7 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
       playerCount,
       cardsPerPlayer: Math.min(cardsPerPlayer, maxCardsForPlayerCount),
       autoFillBots,
+      turnOrderMode,
     });
   };
 
@@ -175,6 +181,79 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
             </label>
           </div>
 
+          {/* Turn Order Selection */}
+          <div className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800 space-y-3">
+            <label className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-300">
+              <ListOrdered className="w-4 h-4 text-amber-400" />
+              Turn Order
+            </label>
+
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setTurnOrderMode('random')}
+                className={`py-3 rounded-xl text-sm font-bold transition cursor-pointer flex items-center justify-center gap-2 ${
+                  turnOrderMode === 'random'
+                    ? 'bg-amber-500 text-slate-950 shadow-md ring-2 ring-amber-300'
+                    : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                }`}
+                title="Lowest card (3♦) leads and turns advance around the table"
+              >
+                <Shuffle className="w-4 h-4" />
+                Random
+              </button>
+              <button
+                type="button"
+                onClick={() => setTurnOrderMode('manual')}
+                className={`py-3 rounded-xl text-sm font-bold transition cursor-pointer flex items-center justify-center gap-2 ${
+                  turnOrderMode === 'manual'
+                    ? 'bg-amber-500 text-slate-950 shadow-md ring-2 ring-amber-300'
+                    : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                }`}
+                title="You pick who plays 1st, 2nd, 3rd and 4th"
+              >
+                <ListOrdered className="w-4 h-4" />
+                Manual (Host Picks)
+              </button>
+            </div>
+
+            <p className="text-[11px] text-slate-400">
+              {turnOrderMode === 'manual'
+                ? 'You will arrange the 1st → 4th play order in the room before the first hand is dealt.'
+                : 'The player dealt the lowest card (3♦) leads; turns advance around the table.'}
+            </p>
+          </div>
+
+          {/* Card Style (Theme) Selection */}
+          <div className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800 space-y-3">
+            <label className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-300">
+              <Palette className="w-4 h-4 text-amber-400" />
+              Card Style
+            </label>
+
+            {themes.length > 0 ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {themes.map(t => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => setThemeId(t.id)}
+                    className={`py-2.5 px-3 rounded-xl text-sm font-bold transition cursor-pointer flex items-center justify-center gap-2 border ${
+                      theme?.id === t.id
+                        ? 'bg-amber-500/20 text-amber-300 border-amber-500/50 ring-1 ring-amber-400'
+                        : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'
+                    }`}
+                  >
+                    <span className="text-slate-100">♠</span>
+                    {t.name}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-slate-400">Using built-in Classic cards.</p>
+            )}
+          </div>
+
           {/* Start Game Action */}
           <button
             id="btn-create-start-game"
@@ -186,7 +265,6 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
             <span>Launch Game ({playerCount} Players • {cardsPerPlayer} Cards)</span>
           </button>
         </form>
-
         {/* Join Room by Code Divider */}
         <div className="relative flex items-center justify-center my-4">
           <div className="border-t border-slate-800 w-full" />

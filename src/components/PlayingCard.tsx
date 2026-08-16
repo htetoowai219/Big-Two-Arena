@@ -1,6 +1,7 @@
 import React from 'react';
 import { Card } from '../types';
 import { SUIT_SYMBOLS, SUIT_NAMES } from '../utils/cardUtils';
+import { useCardTheme } from '../context/CardThemeContext';
 
 interface PlayingCardProps {
   card?: Card;
@@ -29,6 +30,10 @@ export const PlayingCard: React.FC<PlayingCardProps> = ({
   className = '',
   id,
 }) => {
+  // When a card theme is active, render the themed card image; otherwise fall
+  // back to the built-in text-drawn cards.
+  const { getCardImageUrl } = useCardTheme();
+
   if (faceDown || !card) {
     // Face down card back
     const sizeClasses = {
@@ -51,6 +56,10 @@ export const PlayingCard: React.FC<PlayingCardProps> = ({
       </div>
     );
   }
+
+  // When a card theme is active, render the themed card image; otherwise fall
+  // back to the built-in text-drawn cards.
+  const cardImageUrl = card ? getCardImageUrl(card) : null;
 
   // Color mapping strictly red (hearts, diamonds) and black (spades, clubs)
   const isRed = card.suit === 'hearts' || card.suit === 'diamonds';
@@ -76,7 +85,7 @@ export const PlayingCard: React.FC<PlayingCardProps> = ({
       style={{ touchAction: 'manipulation' }}
       className={`
         ${sizeClasses}
-        relative bg-white border-2 select-none cursor-pointer flex-shrink-0
+        relative bg-white border-2 select-none cursor-pointer flex-shrink-0 overflow-hidden
         transition-all duration-150 ease-out flex flex-col justify-between p-1 sm:p-1.5
         ${selected 
           ? '-translate-y-3 sm:-translate-y-4 shadow-2xl border-amber-500 ring-2 ring-amber-400/90 bg-amber-50/90 z-30 scale-105' 
@@ -87,6 +96,15 @@ export const PlayingCard: React.FC<PlayingCardProps> = ({
       `}
       title={`${card.rank} of ${SUIT_NAMES[card.suit]}`}
     >
+      {cardImageUrl ? (
+        <img
+          src={cardImageUrl}
+          alt={`${card.rank} of ${SUIT_NAMES[card.suit]}`}
+          draggable={false}
+          className="absolute inset-0 w-full h-full object-cover pointer-events-none select-none"
+        />
+      ) : (
+        <>
       {/* Top Left Rank + Suit */}
       <div className={`flex flex-col items-center leading-none ${suitColorClass}`}>
         <span className="font-black tracking-tight text-xs sm:text-sm">{card.rank}</span>
@@ -111,6 +129,8 @@ export const PlayingCard: React.FC<PlayingCardProps> = ({
         <div className="absolute -top-1.5 -right-1.5 bg-amber-500 text-slate-950 rounded-full w-4 h-4 flex items-center justify-center text-[9px] font-black shadow border border-amber-300">
           2★
         </div>
+      )}
+        </>
       )}
     </div>
   );
