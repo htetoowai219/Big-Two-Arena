@@ -45,6 +45,15 @@ export interface Player {
 
 export type GameStatus = 'lobby' | 'playing' | 'round-over' | 'game-over';
 
+export interface PassEntry {
+  kind: 'pass';
+  playerId: string;
+  playerName: string;
+  timestamp: number;
+}
+
+export type HistoryEntry = PlayedHand | PassEntry;
+
 export interface GameState {
   roomId: string;
   roomName: string;
@@ -61,7 +70,7 @@ export interface GameState {
   leadPlayerId: string | null; // who has control / led the trick
   roundWinnerId: string | null;
   instantWinReason?: string | null;
-  history: PlayedHand[];
+  history: HistoryEntry[];
   roundNumber: number;
   updatedAt: number;
 }
@@ -84,4 +93,5 @@ export interface WSMessage {
   roomId?: string;
   playerId?: string;
   error?: string;
+  code?: string;
 }

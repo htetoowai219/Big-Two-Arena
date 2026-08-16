@@ -1,0 +1,13 @@
+node_modules
+dist
+.git
+.gitignore
+*.log
+.env
+.env.*
+!.env.example
+bun.lock
+.DS_Store
+README.md
+spec.md
+metadata.json

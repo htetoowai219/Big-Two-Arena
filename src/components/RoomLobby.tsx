@@ -1,21 +1,17 @@
 import React, { useState } from 'react';
-import { Users, Layers, Bot, Play, LogIn, Sparkles, Copy, Check, Shield } from 'lucide-react';
+import { Users, Bot, Play, LogIn, Shield } from 'lucide-react';
 
 interface RoomLobbyProps {
   playerName: string;
-  playerAvatar: string;
-  onUpdatePlayer: (name: string, avatar: string) => void;
+  onUpdatePlayer: (name: string) => void;
   onCreateRoom: (config: { playerCount: number; cardsPerPlayer: number; autoFillBots: boolean }) => void;
   onJoinRoom: (roomId: string) => void;
   activeRoomId?: string | null;
   isHost?: boolean;
 }
 
-const AVATARS = ['👑', '🦊', '🐼', '🐯', '🦁', '🦉', '🐲', '🦄', '🤖', '👾'];
-
 export const RoomLobby: React.FC<RoomLobbyProps> = ({
   playerName,
-  playerAvatar,
   onUpdatePlayer,
   onCreateRoom,
   onJoinRoom,
@@ -26,7 +22,6 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
   const [cardsPerPlayer, setCardsPerPlayer] = useState<number>(13);
   const [autoFillBots, setAutoFillBots] = useState<boolean>(true);
   const [joinRoomInput, setJoinRoomInput] = useState<string>('');
-  const [copiedLink, setCopiedLink] = useState(false);
 
   // Maximum allowed cards per player based on selected player count
   const maxCardsForPlayerCount = Math.floor(52 / playerCount);
@@ -80,40 +75,24 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
       {/* Main Container Card */}
       <div className="w-full bg-slate-900/90 border border-slate-800 rounded-3xl p-5 sm:p-7 shadow-2xl backdrop-blur-md space-y-6">
         {/* Player Profile Section */}
-        <div className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800 space-y-3">
+        <div className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800 space-y-2">
           <label className="block text-xs font-bold uppercase tracking-wider text-slate-400">
-            Player Profile
+            Your Name
           </label>
 
-          <div className="flex flex-col sm:flex-row items-center gap-3">
-            <div className="flex items-center gap-2 overflow-x-auto max-w-full pb-1 no-scrollbar">
-              {AVATARS.map((av) => (
-                <button
-                  key={av}
-                  type="button"
-                  onClick={() => onUpdatePlayer(playerName, av)}
-                  className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center text-lg transition cursor-pointer flex-shrink-0 ${
-                    playerAvatar === av
-                      ? 'bg-amber-500 text-slate-950 ring-2 ring-amber-300 scale-105'
-                      : 'bg-slate-800 text-slate-200 hover:bg-slate-700'
-                  }`}
-                >
-                  {av}
-                </button>
-              ))}
-            </div>
+          <input
+            type="text"
+            value={playerName}
+            onChange={(e) => onUpdatePlayer(e.target.value)}
+            placeholder="Enter your name to play"
+            maxLength={20}
+            autoFocus
+            className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400 transition"
+          />
 
-            <div className="w-full sm:w-auto sm:flex-1">
-              <input
-                type="text"
-                value={playerName}
-                onChange={(e) => onUpdatePlayer(e.target.value, playerAvatar)}
-                placeholder="Enter your name"
-                maxLength={20}
-                className="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-700 text-sm text-slate-100 focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400 transition"
-              />
-            </div>
-          </div>
+          {!playerName.trim() && (
+            <p className="text-xs text-amber-400/90">Enter a name to launch or join a game.</p>
+          )}
         </div>
 
         {/* Room & Game Configuration */}
@@ -200,7 +179,8 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
           <button
             id="btn-create-start-game"
             type="submit"
-            className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 hover:from-amber-400 hover:to-amber-300 text-slate-950 font-black text-base transition shadow-xl shadow-amber-500/20 active:scale-[0.99] cursor-pointer flex items-center justify-center gap-2"
+            disabled={!playerName.trim()}
+            className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 hover:from-amber-400 hover:to-amber-300 disabled:hover:from-amber-500 disabled:hover:to-amber-500 text-slate-950 font-black text-base transition shadow-xl shadow-amber-500/20 active:scale-[0.99] disabled:active:scale-100 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center gap-2"
           >
             <Play className="w-5 h-5 fill-current" />
             <span>Launch Game ({playerCount} Players • {cardsPerPlayer} Cards)</span>
@@ -227,8 +207,8 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
           <button
             id="btn-join-room"
             type="submit"
-            disabled={!joinRoomInput.trim()}
-            className="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-200 text-sm font-bold border border-slate-700 transition cursor-pointer flex items-center gap-2"
+            disabled={!joinRoomInput.trim() || !playerName.trim()}
+            className="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-slate-200 text-sm font-bold border border-slate-700 transition cursor-pointer flex items-center gap-2"
           >
             <LogIn className="w-4 h-4" />
             Join

@@ -104,7 +104,10 @@ function getStraightTopCard(cards: Card[]): Card | null {
   const sorted = [...cards].sort((a, b) => a.rankValue - b.rankValue);
   const ranks = sorted.map(c => c.rankValue);
 
-  // 1. Standard consecutive: 3-4-5-6-7, 4-5-6-7-8, ..., 10-J-Q-K-A (10-11-12-13-14), J-Q-K-A-2 (11-12-13-14-15)
+  // Standard consecutive ranks only (rankValue 3..15):
+  // 3-4-5-6-7, 4-5-6-7-8, ..., 10-J-Q-K-A (10-11-12-13-14), J-Q-K-A-2 (11-12-13-14-15).
+  // The highest (2) and lowest (3) cards cannot wrap around into a straight, so
+  // hands like A-2-3-4-5, 2-3-4-5-6, or Q-K-A-2-3 are invalid.
   let isStandardConsecutive = true;
   for (let i = 0; i < 4; i++) {
     if (ranks[i + 1] !== ranks[i] + 1) {
@@ -116,26 +119,6 @@ function getStraightTopCard(cards: Card[]): Card | null {
   if (isStandardConsecutive) {
     // Top card is the last one in the sequence
     return sorted[4];
-  }
-
-  // 2. Wrap-around straights with Ace/2:
-  // A-2-3-4-5 -> ranks [3, 4, 5, 14, 15]
-  if (ranks[0] === 3 && ranks[1] === 4 && ranks[2] === 5 && ranks[3] === 14 && ranks[4] === 15) {
-    // In Big Two, 2 is the highest rank card in A-2-3-4-5
-    const twoCard = sorted.find(c => c.rank === '2')!;
-    return twoCard;
-  }
-
-  // 2-3-4-5-6 -> ranks [3, 4, 5, 6, 15]
-  if (ranks[0] === 3 && ranks[1] === 4 && ranks[2] === 5 && ranks[3] === 6 && ranks[4] === 15) {
-    const twoCard = sorted.find(c => c.rank === '2')!;
-    return twoCard;
-  }
-
-  // Q-K-A-2-3 -> ranks [3, 12, 13, 14, 15]
-  if (ranks[0] === 3 && ranks[1] === 12 && ranks[2] === 13 && ranks[3] === 14 && ranks[4] === 15) {
-    const twoCard = sorted.find(c => c.rank === '2')!;
-    return twoCard;
   }
 
   return null;
