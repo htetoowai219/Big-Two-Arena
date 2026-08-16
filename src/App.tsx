@@ -21,11 +21,14 @@ import { TableDropZone } from './components/TableDropZone';
 import { PlayerHand } from './components/PlayerHand';
 import { RuleGuideModal } from './components/RuleGuideModal';
 import { GameScoreboard } from './components/GameScoreboard';
-import { EmoteBar } from './components/EmoteBar';
 import { GameHistory } from './components/GameHistory';
 
 const LOCAL_STORAGE_PLAYER_KEY = 'bigtwo_player_profile';
 const LOCAL_STORAGE_GAME_STATE_KEY = 'bigtwo_last_game_state';
+
+// Avatars are no longer chosen by players; a random one is assigned on first
+// launch so players still look distinct at the table.
+const AVATARS = ['👑', '🦊', '🐼', '🐯', '🦁', '🦉', '🐲', '🦄', '🤖', '👾'];
 
 export default function App() {
   // Player profile
@@ -42,7 +45,7 @@ export default function App() {
       const saved = localStorage.getItem(LOCAL_STORAGE_PLAYER_KEY);
       if (saved) return JSON.parse(saved).avatar || '👑';
     } catch {}
-    return '👑';
+    return AVATARS[Math.floor(Math.random() * AVATARS.length)] || '👑';
   });
 
   const [myPlayerId] = useState<string>(() => {
@@ -68,21 +71,36 @@ export default function App() {
   const [hintPlayableCardIds, setHintPlayableCardIds] = useState<Set<string>>(new Set());
   const [isRulesModalOpen, setIsRulesModalOpen] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
-  const [activeEmotes, setActiveEmotes] = useState<Record<string, string>>({});
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [handSortAscending, setHandSortAscending] = useState(true);
 
   // WebSocket reference
   const wsRef = useRef<WebSocket | null>(null);
   const lastTurnPlayerRef = useRef<string | null>(null);
 
   // Save profile changes
-  const handleUpdatePlayer = (name: string, avatar: string) => {
+  const handleUpdatePlayer = (name: string) => {
     setPlayerName(name);
-    setPlayerAvatar(avatar);
     try {
-      localStorage.setItem(LOCAL_STORAGE_PLAYER_KEY, JSON.stringify({ id: myPlayerId, name, avatar }));
+      localStorage.setItem(LOCAL_STORAGE_PLAYER_KEY, JSON.stringify({ id: myPlayerId, name, avatar: playerAvatar }));
     } catch {}
   };
+
+  // Rejoin info for the WebSocket. Kept in a ref so reconnects always use the
+  // latest room/profile instead of a stale closure from an old effect run.
+  const rejoinInfoRef = useRef<{ roomId: string; playerId: string; name: string; avatar: string } | null>(null);
+  useEffect(() => {
+    if (gameState?.roomId) {
+      rejoinInfoRef.current = {
+        roomId: gameState.roomId,
+        playerId: myPlayerId,
+        name: playerName,
+        avatar: playerAvatar,
+      };
+    } else {
+      rejoinInfoRef.current = null;
+    }
+  }, [gameState?.roomId, myPlayerId, playerName, playerAvatar]);
 
   // Connect / Reconnect to WebSocket
   useEffect(() => {
@@ -90,23 +108,26 @@ export default function App() {
     const wsUrl = `${protocol}//${window.location.host}`;
     let socket: WebSocket | null = null;
     let reconnectTimeout: any = null;
+    let stopped = false;
 
     function connect() {
+      if (stopped) return;
       try {
         socket = new WebSocket(wsUrl);
         wsRef.current = socket;
 
         socket.onopen = () => {
           // If we have an existing room, sync back
-          if (gameState?.roomId) {
+          const info = rejoinInfoRef.current;
+          if (info) {
             socket?.send(JSON.stringify({
               type: 'PLAYER_JOINED',
               payload: {
-                roomId: gameState.roomId,
+                roomId: info.roomId,
                 player: {
-                  id: myPlayerId,
-                  name: playerName,
-                  avatar: playerAvatar,
+                  id: info.playerId,
+                  name: info.name,
+                  avatar: info.avatar,
                   isBot: false,
                   cards: [],
                   cardsCount: 0,
@@ -146,6 +167,16 @@ export default function App() {
               sound.playInvalid();
               setErrorMessage(data.error);
               setTimeout(() => setErrorMessage(null), 3000);
+
+              // The room no longer exists (e.g. server restarted). Drop the stale
+              // game state so we cleanly return to the home screen once, instead of
+              // glitching between the game and home screens on every reconnect.
+              if (data.code === 'ROOM_NOT_FOUND') {
+                setGameState(null);
+                try {
+                  localStorage.removeItem(LOCAL_STORAGE_GAME_STATE_KEY);
+                } catch {}
+              }
             }
           } catch (err) {
             console.error('Error handling WS message:', err);
@@ -153,24 +184,30 @@ export default function App() {
         };
 
         socket.onclose = () => {
-          reconnectTimeout = setTimeout(connect, 2000);
+          if (!stopped) reconnectTimeout = setTimeout(connect, 2000);
         };
 
         socket.onerror = () => {
           socket?.close();
         };
       } catch (e) {
-        reconnectTimeout = setTimeout(connect, 2000);
+        if (!stopped) reconnectTimeout = setTimeout(connect, 2000);
       }
     }
 
     connect();
 
     return () => {
-      if (socket) socket.close();
+      stopped = true;
       if (reconnectTimeout) clearTimeout(reconnectTimeout);
+      if (socket) {
+        // Detach handlers before closing so the close event doesn't schedule
+        // a zombie reconnect after this effect has been cleaned up.
+        socket.onclose = null;
+        socket.close();
+      }
     };
-  }, [gameState?.roomId, myPlayerId, playerName, playerAvatar]);
+  }, [myPlayerId]);
 
   // Current Player entity
   const myPlayer = useMemo(() => {
@@ -293,10 +330,12 @@ export default function App() {
   const handleSortCards = () => {
     if (!myPlayer || !gameState) return;
     const sorted = sortCards(myPlayer.cards);
+    const ordered = handSortAscending ? sorted : [...sorted].reverse();
+    setHandSortAscending(!handSortAscending);
     sound.playCardSelect();
     const updatedPlayers = gameState.players.map(p => {
       if (p.id === myPlayerId) {
-        return { ...p, cards: sorted };
+        return { ...p, cards: ordered };
       }
       return p;
     });
@@ -444,17 +483,6 @@ export default function App() {
     } catch {}
   };
 
-  const handleSendEmote = (emote: string) => {
-    setActiveEmotes(prev => ({ ...prev, [myPlayerId]: emote }));
-    setTimeout(() => {
-      setActiveEmotes(prev => {
-        const next = { ...prev };
-        delete next[myPlayerId];
-        return next;
-      });
-    }, 2500);
-  };
-
   // Find opponent positions:
   // 2 players: 1 top
   // 3 players: 1 left, 1 right
@@ -501,7 +529,6 @@ export default function App() {
         <div className="flex-1 flex items-center justify-center py-6 px-3">
           <RoomLobby
             playerName={playerName}
-            playerAvatar={playerAvatar}
             onUpdatePlayer={handleUpdatePlayer}
             onCreateRoom={handleCreateRoom}
             onJoinRoom={handleJoinRoom}
@@ -540,10 +567,26 @@ export default function App() {
         </div>
       )}
 
-      {/* Game Table Arena with Optional History Log Beside Table */}
+      {/* Game Table Arena */}
       <div className="flex-1 w-full max-w-7xl mx-auto px-2 sm:px-4 py-1 sm:py-2 flex flex-col justify-between relative">
-        {/* Top Opponent Seat (if present) */}
-        <div className="w-full flex justify-center py-0.5 sm:py-1">
+        {/* Mobile (3-4 players): all opponents as a compact name+count row; the table gets full width below */}
+        {gameState.players.length > 2 && (
+          <div className="sm:hidden w-full flex items-center justify-center gap-1.5 py-0.5 flex-wrap">
+            {positionedOpponents.map(o => (
+              <OpponentSeat
+                key={o.player.id}
+                player={o.player}
+                isCurrentTurn={gameState.currentTurnPlayerId === o.player.id}
+                position="top"
+                playersCount={gameState.players.length}
+                compact
+              />
+            ))}
+          </div>
+        )}
+
+        {/* Top Opponent Seat (desktop; or the single opponent in 2-player mode) */}
+        <div className={`${gameState.players.length > 2 ? 'hidden sm:flex' : 'flex'} w-full justify-center py-0.5 sm:py-1`}>
           {positionedOpponents
             .filter(o => o.position === 'top')
             .map(o => (
@@ -552,27 +595,27 @@ export default function App() {
                 player={o.player}
                 isCurrentTurn={gameState.currentTurnPlayerId === o.player.id}
                 position="top"
-                activeEmote={activeEmotes[o.player.id]}
+                playersCount={gameState.players.length}
               />
             ))}
         </div>
 
-        {/* Center Arena with Left/Right Opponents, Center Table Dropzone, and Desktop History Sidebar */}
+        {/* Center Arena with Left/Right Opponents and Center Table Dropzone */}
         <div className="w-full flex items-center justify-between gap-1.5 sm:gap-4 my-auto">
-          {/* Left Opponent */}
-          <div className="flex flex-col items-center justify-center min-w-[75px] xs:min-w-[90px] sm:min-w-[120px]">
-            {positionedOpponents
-              .filter(o => o.position === 'left')
-              .map(o => (
-                <OpponentSeat
-                  key={o.player.id}
-                  player={o.player}
-                  isCurrentTurn={gameState.currentTurnPlayerId === o.player.id}
-                  position="left"
-                  activeEmote={activeEmotes[o.player.id]}
-                />
-              ))}
-          </div>
+          {/* Left Opponent (desktop only; on mobile opponents sit in the top row) */}
+          <div className="hidden sm:flex flex-col items-center justify-center min-w-[120px]">
+              {positionedOpponents
+                .filter(o => o.position === 'left')
+                .map(o => (
+                  <OpponentSeat
+                    key={o.player.id}
+                    player={o.player}
+                    isCurrentTurn={gameState.currentTurnPlayerId === o.player.id}
+                    position="left"
+                    playersCount={gameState.players.length}
+                  />
+                ))}
+              </div>
 
           {/* Center Felt Table Dropzone */}
           <div className="flex-1 flex justify-center max-w-2xl">
@@ -580,8 +623,6 @@ export default function App() {
               lastPlayedHand={gameState.lastPlayedHand}
               currentTurnPlayer={currentTurnPlayer}
               isMyTurn={isMyTurn}
-              passCount={gameState.passCount}
-              totalPlayers={gameState.players.length}
               selectedCards={selectedCards}
               selectedHandEvaluation={selectedHandEvaluation}
               selectedHandCanBeat={selectedHandCanBeat}
@@ -590,35 +631,24 @@ export default function App() {
               onPass={handlePass}
               onAutoSort={handleSortCards}
               onShowHint={handleShowHint}
+              onToggleHistory={() => setIsHistoryOpen(prev => !prev)}
             />
           </div>
 
-          {/* Right Opponent */}
-          <div className="flex flex-col items-center justify-center min-w-[75px] xs:min-w-[90px] sm:min-w-[120px]">
-            {positionedOpponents
-              .filter(o => o.position === 'right')
-              .map(o => (
-                <OpponentSeat
-                  key={o.player.id}
-                  player={o.player}
-                  isCurrentTurn={gameState.currentTurnPlayerId === o.player.id}
-                  position="right"
-                  activeEmote={activeEmotes[o.player.id]}
-                />
-              ))}
-          </div>
-
-          {/* Desktop History Sidebar beside Table */}
-          {gameState.history && (
-            <div className="hidden xl:block w-64 flex-shrink-0 ml-2">
-              <GameHistory history={gameState.history} />
-            </div>
-          )}
-        </div>
-
-        {/* Floating Quick Emote Bar */}
-        <div className="w-full flex justify-center py-0.5 sm:py-1">
-          <EmoteBar onSendEmote={handleSendEmote} />
+          {/* Right Opponent (desktop only; on mobile opponents sit in the top row) */}
+          <div className="hidden sm:flex flex-col items-center justify-center min-w-[120px]">
+              {positionedOpponents
+                .filter(o => o.position === 'right')
+                .map(o => (
+                  <OpponentSeat
+                    key={o.player.id}
+                    player={o.player}
+                    isCurrentTurn={gameState.currentTurnPlayerId === o.player.id}
+                    position="right"
+                    playersCount={gameState.players.length}
+                  />
+                ))}
+              </div>
         </div>
 
         {/* Bottom: Player's Hand */}
@@ -632,17 +662,21 @@ export default function App() {
             onSortCards={handleSortCards}
             onClearSelection={handleClearSelection}
             onReorderCards={handleReorderCards}
+            sortAscending={handSortAscending}
           />
         )}
       </div>
 
-      {/* Mobile / Toggleable History Drawer / Modal */}
+      {/* History Overlay */}
       {isHistoryOpen && (
-        <div className="fixed inset-0 z-40 bg-slate-950/80 backdrop-blur-sm flex items-end sm:items-center justify-center p-3">
-          <div className="w-full max-w-md animate-in slide-in-from-bottom duration-200">
+        <div className="fixed inset-0 z-40 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-3">
+          <div
+            className="absolute inset-0"
+            onClick={() => setIsHistoryOpen(false)}
+          />
+          <div className="relative w-full max-w-md animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
             <GameHistory
               history={gameState.history || []}
-              isOpenMobile={true}
               onCloseMobile={() => setIsHistoryOpen(false)}
             />
           </div>

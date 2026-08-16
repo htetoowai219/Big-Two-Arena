@@ -1,0 +1,23 @@
+# Render blueprint for Big Two Arena.
+# Two ways to use this:
+#   1. "New -> Blueprint" and paste this repo URL (update `repo` below).
+#   2. "New -> Web Service" -> choose the repo, pick runtime Docker, and set the
+#      env vars manually (NODE_ENV, MONGODB_URI, ROOM_TTL_SECONDS).
+services:
+  - type: web
+    name: big-two-arena
+    runtime: docker
+    repo: https://github.com/YOUR_USERNAME/YOUR_REPO   # update this
+    plan: starter
+    autoDeploy: true
+    healthCheckPath: /api/health
+    healthCheckTimeout: 100
+    dockerCommand: node dist/server.cjs
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGODB_URI
+        # Leave blank ("sync: false") so you can paste the secret in the dashboard.
+        sync: false
+      - key: ROOM_TTL_SECONDS
+        value: "86400"

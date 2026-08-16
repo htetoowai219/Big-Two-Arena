@@ -12,6 +12,7 @@ interface PlayerHandProps {
   onSortCards: () => void;
   onClearSelection: () => void;
   onReorderCards: (sourceIndex: number, targetIndex: number) => void;
+  sortAscending?: boolean;
 }
 
 export const PlayerHand: React.FC<PlayerHandProps> = ({
@@ -23,6 +24,7 @@ export const PlayerHand: React.FC<PlayerHandProps> = ({
   onSortCards,
   onClearSelection,
   onReorderCards,
+  sortAscending = true,
 }) => {
   const [draggedCardIndex, setDraggedCardIndex] = useState<number | null>(null);
   const [dropTargetIndex, setDropTargetIndex] = useState<number | null>(null);
@@ -95,10 +97,10 @@ export const PlayerHand: React.FC<PlayerHandProps> = ({
             type="button"
             onClick={onSortCards}
             className="flex items-center gap-1 text-slate-200 hover:text-amber-300 text-xs px-2.5 py-1 rounded-lg bg-slate-800/90 border border-slate-700 hover:border-slate-600 transition cursor-pointer shadow-sm active:scale-95"
-            title="Sort cards from lowest (3♦) to highest (2♠)"
+            title="Tap to toggle sort order: ascending (smallest left, 3 → 2) or descending (biggest left, 2 → 3)"
           >
             <ArrowUpDown className="w-3.5 h-3.5 text-amber-400" />
-            <span>Sort (3 → 2)</span>
+            <span>Sort ({sortAscending ? '3 → 2' : '2 → 3'})</span>
           </button>
         </div>
       </div>

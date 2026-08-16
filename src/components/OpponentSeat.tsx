@@ -7,36 +7,51 @@ interface OpponentSeatProps {
   player: Player;
   isCurrentTurn: boolean;
   position: 'top' | 'left' | 'right';
-  activeEmote?: string | null;
+  playersCount: number;
+  compact?: boolean;
 }
 
 export const OpponentSeat: React.FC<OpponentSeatProps> = ({
   player,
   isCurrentTurn,
   position,
-  activeEmote,
+  playersCount,
+  compact = false,
 }) => {
   const cardCount = player.cardsCount ?? player.cards?.length ?? 0;
+
+  // On mobile, only show the card-back fan in 2-player mode; for 3-4 players
+  // opponents are just name + card count so the seats stay compact.
+  const fanClassName = playersCount === 2 ? 'flex' : 'hidden sm:flex';
+
+  // On mobile the top seat shows name-only in 3-4 player games (no score,
+  // count, or fan); on desktop it renders the full seat.
+  const fanBlockClassName = position === 'top' && playersCount > 2 ? 'hidden sm:flex' : 'flex';
 
   return (
     <div
       className={`
-        relative flex items-center gap-2 p-2 sm:p-2.5 rounded-2xl transition-all duration-300
+        relative flex items-center transition-all duration-300
+        ${compact ? 'gap-1.5 p-1.5 rounded-xl' : 'gap-2 p-2 sm:p-2.5 rounded-2xl'}
         ${isCurrentTurn 
           ? 'bg-amber-500/20 border-2 border-amber-400 ring-2 ring-amber-400/40 shadow-lg scale-105' 
           : 'bg-slate-900/80 border border-slate-800 shadow'}
-        ${position === 'top' ? 'flex-col sm:flex-row' : 'flex-col'}
+        ${compact ? 'flex-row' : position === 'top' ? 'flex-col sm:flex-row' : 'flex-col'}
       `}
     >
-      {/* Active Emote popup */}
-      {activeEmote && (
-        <div className="absolute -top-7 left-1/2 -translate-x-1/2 text-2xl animate-bounce z-30">
-          {activeEmote}
-        </div>
-      )}
-
-      {/* Avatar & Player Info */}
-      <div className="flex items-center gap-2">
+      {compact ? (
+        <>
+          <span className="font-bold text-[11px] text-slate-200 truncate max-w-[70px] sm:max-w-[90px]">
+            {player.name}
+          </span>
+          <span className="px-1.5 py-0.5 bg-slate-950/90 text-amber-400 font-mono font-bold text-[11px] rounded-full border border-slate-700">
+            {cardCount}
+          </span>
+        </>
+      ) : (
+        <>
+          {/* Avatar & Player Info */}
+      <div className={`items-center gap-2 ${position === 'top' ? 'hidden sm:flex' : 'flex'}`}>
         <div className="relative">
           <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-slate-800 border-2 border-slate-700 flex items-center justify-center text-xl shadow-inner">
             {player.avatar || '👤'}
@@ -76,9 +91,16 @@ export const OpponentSeat: React.FC<OpponentSeatProps> = ({
         </div>
       </div>
 
+      {/* Mobile name-only pill for the top seat in 3-4 player games */}
+      {position === 'top' && (
+        <span className="sm:hidden font-bold text-xs text-slate-200 truncate max-w-[120px]">
+          {player.name}
+        </span>
+      )}
+
       {/* Opponent Card Stack / Mini Fan */}
-      <div className="flex items-center justify-center mt-1">
-        <div className="flex items-center -space-x-6 sm:-space-x-7 py-0.5">
+      <div className={`${fanBlockClassName} items-center justify-center mt-1`}>
+        <div className={`${fanClassName} items-center -space-x-6 sm:-space-x-7 py-0.5`}>
           {Array.from({ length: Math.min(cardCount, 8) }).map((_, idx) => (
             <div
               key={idx}
@@ -96,6 +118,8 @@ export const OpponentSeat: React.FC<OpponentSeatProps> = ({
           {cardCount}
         </span>
       </div>
+        </>
+      )}
 
       {/* Thinking state indicator */}
       {isCurrentTurn && (

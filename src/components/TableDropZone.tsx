@@ -7,8 +7,6 @@ interface TableDropZoneProps {
   lastPlayedHand: PlayedHand | null;
   currentTurnPlayer: Player | null;
   isMyTurn: boolean;
-  passCount: number;
-  totalPlayers: number;
   selectedCards: Card[];
   selectedHandEvaluation: PlayedHand | null;
   selectedHandCanBeat: { canBeat: boolean; reason?: string } | null;
@@ -23,8 +21,6 @@ export const TableDropZone: React.FC<TableDropZoneProps> = ({
   lastPlayedHand,
   currentTurnPlayer,
   isMyTurn,
-  passCount,
-  totalPlayers,
   selectedCards,
   selectedHandEvaluation,
   selectedHandCanBeat,
@@ -58,13 +54,6 @@ export const TableDropZone: React.FC<TableDropZoneProps> = ({
         </div>
 
         <div className="flex items-center gap-2 flex-shrink-0">
-          {lastPlayedHand && (
-            <div className="flex items-center gap-1 px-2.5 py-0.5 bg-emerald-900/90 rounded-full border border-emerald-600/40 text-emerald-300 text-xs font-semibold">
-              <span>Passes:</span>
-              <span className="font-bold text-amber-300">{passCount} / {Math.max(1, totalPlayers - 1)}</span>
-            </div>
-          )}
-
           {onToggleHistory && (
             <button
               onClick={onToggleHistory}
