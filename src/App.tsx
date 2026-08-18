@@ -376,6 +376,16 @@ export default function App() {
       return p;
     });
     setGameState({ ...gameState, players: updatedPlayers });
+
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      const action: ClientAction = {
+        type: 'REORDER_CARDS',
+        roomId: gameState.roomId,
+        playerId: myPlayerId,
+        cards: ordered,
+      };
+      wsRef.current.send(JSON.stringify({ type: 'ACTION', payload: action }));
+    }
   };
 
   const handlePlaySelected = () => {

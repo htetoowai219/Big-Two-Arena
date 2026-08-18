@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Card, Player } from '../types';
 import { PlayingCard } from './PlayingCard';
 import { ArrowUpDown, XCircle, Sparkles, MoveHorizontal } from 'lucide-react';
@@ -28,6 +28,9 @@ export const PlayerHand: React.FC<PlayerHandProps> = ({
 }) => {
   const [draggedCardIndex, setDraggedCardIndex] = useState<number | null>(null);
   const [dropTargetIndex, setDropTargetIndex] = useState<number | null>(null);
+  const [reorderSourceIndex, setReorderSourceIndex] = useState<number | null>(null);
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const touchStartPosRef = useRef<{ x: number; y: number } | null>(null);
 
   const handleDragStart = (e: React.DragEvent, index: number) => {
     setDraggedCardIndex(index);
@@ -61,6 +64,35 @@ export const PlayerHand: React.FC<PlayerHandProps> = ({
     setDropTargetIndex(null);
   };
 
+  // Mobile long-press to pick up a card for reordering
+  const handleTouchStart = (index: number, e: React.TouchEvent) => {
+    const touch = e.touches[0];
+    touchStartPosRef.current = { x: touch.clientX, y: touch.clientY };
+    longPressTimerRef.current = setTimeout(() => {
+      setReorderSourceIndex(index);
+      longPressTimerRef.current = null;
+    }, 500);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (longPressTimerRef.current && touchStartPosRef.current) {
+      const touch = e.touches[0];
+      const dx = Math.abs(touch.clientX - touchStartPosRef.current.x);
+      const dy = Math.abs(touch.clientY - touchStartPosRef.current.y);
+      if (dx > 10 || dy > 10) {
+        clearTimeout(longPressTimerRef.current);
+        longPressTimerRef.current = null;
+      }
+    }
+  };
+
+  const handleTouchEnd = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  };
+
   // Shared card fan renderer. `offset` maps a card's position within the fan
   // back to its index in the full hand (used for drag-and-drop reordering).
   const renderCardFan = (
@@ -84,6 +116,10 @@ export const PlayerHand: React.FC<PlayerHandProps> = ({
             onDragOver={(e) => handleDragOver(e, index)}
             onDragLeave={handleDragLeave}
             onDrop={(e) => handleDrop(e, index)}
+            onTouchStart={(e) => handleTouchStart(index, e)}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+            onTouchCancel={handleTouchEnd}
             style={{
               zIndex: isSelected ? 40 : index + 1,
             }}
@@ -91,6 +127,7 @@ export const PlayerHand: React.FC<PlayerHandProps> = ({
               transition-all duration-150 relative origin-bottom
               ${fanRotate && i === 0 && cards.length > 1 ? 'rotate-[-5deg]' : ''}
               ${fanRotate && i === cards.length - 1 && cards.length > 1 ? 'rotate-[5deg]' : ''}
+              ${reorderSourceIndex === index ? 'ring-2 ring-blue-500 rounded-lg scale-105' : ''}
               ${isDropTarget ? 'scale-110 -translate-y-2 ring-2 ring-blue-400 rounded-lg' : ''}
               ${isBeingDragged ? 'opacity-40 scale-95' : ''}
             `}
@@ -100,7 +137,16 @@ export const PlayerHand: React.FC<PlayerHandProps> = ({
               selected={isSelected}
               isPlayable={isHighlightedPlayable}
               draggable={draggable}
-              onClick={() => onToggleCard(card)}
+              onClick={() => {
+                if (reorderSourceIndex !== null) {
+                  if (reorderSourceIndex !== index) {
+                    onReorderCards(reorderSourceIndex, index);
+                  }
+                  setReorderSourceIndex(null);
+                } else {
+                  onToggleCard(card);
+                }
+              }}
               onDragStart={(e) => handleDragStart(e, index)}
               onDragEnd={handleDragEnd}
               size="md"
@@ -206,6 +252,11 @@ export const PlayerHand: React.FC<PlayerHandProps> = ({
                 </span>
               </div>
             ))}
+            {reorderSourceIndex !== null && (
+              <div className="text-[10px] text-blue-400 text-center">
+                Tap another card to swap, or tap the highlighted card to cancel
+              </div>
+            )}
           </div>
         </>
       )}
@@ -216,7 +267,7 @@ export const PlayerHand: React.FC<PlayerHandProps> = ({
           <span>Tap cards to select • Drag cards to reorder • Tap <strong>Play Hand</strong> to play</span>
         </span>
         <span className="sm:hidden">
-          Tap cards to select • Tap <strong>Play Hand</strong> to play
+          Tap to select • Hold to reorder • Tap <strong>Play Hand</strong> to play
         </span>
       </div>
     </div>
