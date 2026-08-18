@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Users, Bot, Play, LogIn, Shield, Shuffle, ListOrdered, Palette } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Users, Bot, Play, LogIn, Shuffle, ListOrdered, Palette } from 'lucide-react';
 import { RoomConfig, TurnOrderMode } from '../types';
 import { useCardTheme } from '../context/CardThemeContext';
 
@@ -25,11 +25,18 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
   const [autoFillBots, setAutoFillBots] = useState<boolean>(true);
   const [turnOrderMode, setTurnOrderMode] = useState<TurnOrderMode>('random');
   const [joinRoomInput, setJoinRoomInput] = useState<string>('');
+  const [activeTab, setActiveTab] = useState<'create' | 'join'>('create');
+  const [cardInputValue, setCardInputValue] = useState<string>(String(13));
 
   const { themes, theme, setThemeId } = useCardTheme();
 
   // Maximum allowed cards per player based on selected player count
   const maxCardsForPlayerCount = Math.floor(52 / playerCount);
+
+  // Sync numeric input when slider changes
+  useEffect(() => {
+    setCardInputValue(String(cardsPerPlayer));
+  }, [cardsPerPlayer]);
 
   // Adjust cardsPerPlayer when playerCount changes
   const handlePlayerCountChange = (count: number) => {
@@ -37,6 +44,15 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
     const max = Math.floor(52 / count);
     if (cardsPerPlayer > max) {
       setCardsPerPlayer(max);
+      setCardInputValue(String(max));
+    }
+  };
+
+  const handleCardInputChange = (value: string) => {
+    setCardInputValue(value);
+    const num = parseInt(value, 10);
+    if (!isNaN(num) && num >= 3 && num <= maxCardsForPlayerCount) {
+      setCardsPerPlayer(num);
     }
   };
 
@@ -101,203 +117,234 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
           )}
         </div>
 
-        {/* Room & Game Configuration */}
-        <form onSubmit={handleCreateRoom} className="space-y-5">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {/* Player Count Selection (up to 4) */}
-            <div className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800 space-y-2">
-              <label className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-300">
-                <Users className="w-4 h-4 text-amber-400" />
-                Player Count (Up to 4)
-              </label>
-
-              <div className="grid grid-cols-3 gap-2">
-                {[2, 3, 4].map((count) => (
-                  <button
-                    key={count}
-                    type="button"
-                    onClick={() => handlePlayerCountChange(count)}
-                    className={`py-2.5 rounded-xl text-sm font-bold transition cursor-pointer flex flex-col items-center ${
-                      playerCount === count
-                        ? 'bg-amber-500 text-slate-950 shadow-md ring-2 ring-amber-300'
-                        : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-                    }`}
-                  >
-                    <span>{count} Players</span>
-                    <span className="text-[10px] opacity-80">Max {Math.floor(52 / count)} cards</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Cards per player selection */}
-            <div className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800 space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-300">
-                  <span>Cards Dealt / Player</span>
-                </label>
-                <span className="text-sm font-mono font-bold text-amber-400 bg-slate-900 px-2 py-0.5 rounded border border-slate-700">
-                  {cardsPerPlayer} Cards
-                </span>
-              </div>
-
-              <input
-                type="range"
-                min={3}
-                max={maxCardsForPlayerCount}
-                value={cardsPerPlayer}
-                onChange={(e) => setCardsPerPlayer(Number(e.target.value))}
-                className="w-full accent-amber-500 cursor-pointer h-2 bg-slate-800 rounded-lg"
-              />
-
-              <div className="flex justify-between text-[11px] text-slate-400 font-mono">
-                <span>Min: 3</span>
-                <span>Total dealt: {cardsPerPlayer * playerCount} / 52</span>
-                <span>Max: {maxCardsForPlayerCount}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* AI Bot Fill Toggle */}
-          <div className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-950/60 border border-slate-800">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-blue-500/20 border border-blue-500/30 flex items-center justify-center text-blue-400">
-                <Bot className="w-5 h-5" />
-              </div>
-              <div>
-                <div className="text-sm font-bold text-slate-200">Auto-fill Missing Slots with AI Bots</div>
-                <div className="text-xs text-slate-400">Play immediately solo or with friends online</div>
-              </div>
-            </div>
-
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input
-                type="checkbox"
-                checked={autoFillBots}
-                onChange={(e) => setAutoFillBots(e.target.checked)}
-                className="sr-only peer"
-              />
-              <div className="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
-            </label>
-          </div>
-
-          {/* Turn Order Selection */}
-          <div className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800 space-y-3">
-            <label className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-300">
-              <ListOrdered className="w-4 h-4 text-amber-400" />
-              Turn Order
-            </label>
-
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => setTurnOrderMode('random')}
-                className={`py-3 rounded-xl text-sm font-bold transition cursor-pointer flex items-center justify-center gap-2 ${
-                  turnOrderMode === 'random'
-                    ? 'bg-amber-500 text-slate-950 shadow-md ring-2 ring-amber-300'
-                    : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-                }`}
-                title="Lowest card (3♦) leads and turns advance around the table"
-              >
-                <Shuffle className="w-4 h-4" />
-                Random
-              </button>
-              <button
-                type="button"
-                onClick={() => setTurnOrderMode('manual')}
-                className={`py-3 rounded-xl text-sm font-bold transition cursor-pointer flex items-center justify-center gap-2 ${
-                  turnOrderMode === 'manual'
-                    ? 'bg-amber-500 text-slate-950 shadow-md ring-2 ring-amber-300'
-                    : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-                }`}
-                title="You pick who plays 1st, 2nd, 3rd and 4th"
-              >
-                <ListOrdered className="w-4 h-4" />
-                Manual (Host Picks)
-              </button>
-            </div>
-
-            <p className="text-[11px] text-slate-400">
-              {turnOrderMode === 'manual'
-                ? 'You will arrange the 1st → 4th play order in the room before the first hand is dealt.'
-                : 'The player dealt the lowest card (3♦) leads; turns advance around the table.'}
-            </p>
-          </div>
-
-          {/* Card Style (Theme) Selection */}
-          <div className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800 space-y-3">
-            <label className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-300">
-              <Palette className="w-4 h-4 text-amber-400" />
-              Card Style
-            </label>
-
-            {themes.length > 0 ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {themes.map(t => (
-                  <button
-                    key={t.id}
-                    type="button"
-                    onClick={() => setThemeId(t.id)}
-                    className={`py-2.5 px-3 rounded-xl text-sm font-bold transition cursor-pointer flex items-center justify-center gap-2 border ${
-                      theme?.id === t.id
-                        ? 'bg-amber-500/20 text-amber-300 border-amber-500/50 ring-1 ring-amber-400'
-                        : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'
-                    }`}
-                  >
-                    <span className="text-slate-100">♠</span>
-                    {t.name}
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <p className="text-xs text-slate-400">Using built-in Classic cards.</p>
-            )}
-          </div>
-
-          {/* Start Game Action */}
+        {/* Tab Switcher */}
+        <div className="flex w-full rounded-xl bg-slate-800 border border-slate-700 p-1 gap-1">
           <button
-            id="btn-create-start-game"
-            type="submit"
-            disabled={!playerName.trim()}
-            className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 hover:from-amber-400 hover:to-amber-300 disabled:hover:from-amber-500 disabled:hover:to-amber-500 text-slate-950 font-black text-base transition shadow-xl shadow-amber-500/20 active:scale-[0.99] disabled:active:scale-100 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center gap-2"
+            type="button"
+            onClick={() => setActiveTab('create')}
+            className={`flex-1 py-2 rounded-lg text-sm font-bold transition cursor-pointer ${
+              activeTab === 'create'
+                ? 'bg-amber-500 text-slate-950 shadow-md'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
           >
-            <Play className="w-5 h-5 fill-current" />
-            <span>Launch Game ({playerCount} Players • {cardsPerPlayer} Cards)</span>
+            Create Room
           </button>
-        </form>
-        {/* Join Room by Code Divider */}
-        <div className="relative flex items-center justify-center my-4">
-          <div className="border-t border-slate-800 w-full" />
-          <span className="bg-slate-900 px-3 text-xs uppercase font-semibold text-slate-500 absolute">
-            Or Join Existing Room
-          </span>
+          <button
+            type="button"
+            onClick={() => setActiveTab('join')}
+            className={`flex-1 py-2 rounded-lg text-sm font-bold transition cursor-pointer ${
+              activeTab === 'join'
+                ? 'bg-amber-500 text-slate-950 shadow-md'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            Join Room
+          </button>
         </div>
 
-        {/* Join Room Form */}
-        <form onSubmit={handleJoin} className="flex items-center gap-2">
-          <input
-            type="text"
-            value={joinRoomInput}
-            onChange={(e) => setJoinRoomInput(e.target.value)}
-            placeholder="Enter Room Code (e.g. B2-9481)"
-            className="flex-1 px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-sm text-slate-100 focus:outline-none focus:border-amber-400 font-mono uppercase"
-          />
-          <button
-            id="btn-join-room"
-            type="submit"
-            disabled={!joinRoomInput.trim() || !playerName.trim()}
-            className="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-slate-200 text-sm font-bold border border-slate-700 transition cursor-pointer flex items-center gap-2"
-          >
-            <LogIn className="w-4 h-4" />
-            Join
-          </button>
-        </form>
-      </div>
+        {/* Create Room Tab */}
+        {activeTab === 'create' && (
+          <form onSubmit={handleCreateRoom} className="space-y-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Player Count Selection (up to 4) */}
+              <div className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800 space-y-2">
+                <label className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-300">
+                  <Users className="w-4 h-4 text-amber-400" />
+                  Player Count (Up to 4)
+                </label>
 
-      {/* Rules Summary Badge */}
-      <div className="mt-4 text-xs text-slate-400 flex items-center gap-2">
-        <Shield className="w-4 h-4 text-emerald-400" />
-        <span>Full 52-card deck • ♠ &gt; ♥ &gt; ♣ &gt; ♦ • 2 &gt; A &gt; ... &gt; 3 • 4 Twos Auto-Win</span>
+                <div className="grid grid-cols-3 gap-2">
+                  {[2, 3, 4].map((count) => (
+                    <button
+                      key={count}
+                      type="button"
+                      onClick={() => handlePlayerCountChange(count)}
+                      className={`py-2.5 rounded-xl text-sm font-bold transition cursor-pointer flex flex-col items-center ${
+                        playerCount === count
+                          ? 'bg-amber-500 text-slate-950 shadow-md ring-2 ring-amber-300'
+                          : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                      }`}
+                    >
+                      <span>{count} Players</span>
+                      <span className="text-[10px] opacity-80">Max {Math.floor(52 / count)} cards</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Cards per player selection */}
+              <div className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-300">
+                    <span>Cards Dealt / Player</span>
+                  </label>
+                  <input
+                    type="number"
+                    min={3}
+                    max={maxCardsForPlayerCount}
+                    value={cardInputValue}
+                    onChange={(e) => handleCardInputChange(e.target.value)}
+                    onBlur={() => setCardInputValue(String(cardsPerPlayer))}
+                    className="w-16 text-center text-sm font-mono font-bold text-amber-400 bg-slate-900 px-1 py-0.5 rounded border border-slate-700 focus:outline-none focus:border-amber-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  />
+                </div>
+
+                <input
+                  type="range"
+                  min={3}
+                  max={maxCardsForPlayerCount}
+                  value={cardsPerPlayer}
+                  onChange={(e) => setCardsPerPlayer(Number(e.target.value))}
+                  className="w-full accent-amber-500 cursor-pointer h-2 bg-slate-800 rounded-lg"
+                />
+
+                <div className="flex justify-between text-[11px] text-slate-400 font-mono">
+                  <span>Min: 3</span>
+                  <span>Total dealt: {cardsPerPlayer * playerCount} / 52</span>
+                  <span>Max: {maxCardsForPlayerCount}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* AI Bot Fill Toggle */}
+            <div className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-950/60 border border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-blue-500/20 border border-blue-500/30 flex items-center justify-center text-blue-400">
+                  <Bot className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="text-sm font-bold text-slate-200">Auto-fill Missing Slots with AI Bots</div>
+                  <div className="text-xs text-slate-400">Play immediately solo or with friends online</div>
+                </div>
+              </div>
+
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={autoFillBots}
+                  onChange={(e) => setAutoFillBots(e.target.checked)}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+              </label>
+            </div>
+
+            {/* Turn Order Selection */}
+            <div className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800 space-y-3">
+              <label className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-300">
+                <ListOrdered className="w-4 h-4 text-amber-400" />
+                Turn Order
+              </label>
+
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setTurnOrderMode('random')}
+                  className={`py-3 rounded-xl text-sm font-bold transition cursor-pointer flex items-center justify-center gap-2 ${
+                    turnOrderMode === 'random'
+                      ? 'bg-amber-500 text-slate-950 shadow-md ring-2 ring-amber-300'
+                      : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                  }`}
+                  title="Lowest card (3♦) leads and turns advance around the table"
+                >
+                  <Shuffle className="w-4 h-4" />
+                  Random
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTurnOrderMode('manual')}
+                  className={`py-3 rounded-xl text-sm font-bold transition cursor-pointer flex items-center justify-center gap-2 ${
+                    turnOrderMode === 'manual'
+                      ? 'bg-amber-500 text-slate-950 shadow-md ring-2 ring-amber-300'
+                      : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                  }`}
+                  title="You pick who plays 1st, 2nd, 3rd and 4th"
+                >
+                  <ListOrdered className="w-4 h-4" />
+                  Manual
+                </button>
+              </div>
+
+              <p className="text-[11px] text-slate-400">
+                {turnOrderMode === 'manual'
+                  ? 'You will arrange the 1st → 4th play order in the room before the first hand is dealt.'
+                  : 'The player dealt the lowest card (3♦) leads; turns advance around the table.'}
+              </p>
+            </div>
+
+            {/* Card Style (Theme) Selection */}
+            <div className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800 space-y-3">
+              <label className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-300">
+                <Palette className="w-4 h-4 text-amber-400" />
+                Card Style
+              </label>
+
+              {themes.length > 0 ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {themes.map(t => (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => setThemeId(t.id)}
+                      className={`py-2.5 px-3 rounded-xl text-sm font-bold transition cursor-pointer flex items-center justify-center gap-2 border ${
+                        theme?.id === t.id
+                          ? 'bg-amber-500/20 text-amber-300 border-amber-500/50 ring-1 ring-amber-400'
+                          : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'
+                      }`}
+                    >
+                      <span className="text-slate-100">♠</span>
+                      {t.name}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-slate-400">Using built-in Classic cards.</p>
+              )}
+            </div>
+
+            {/* Start Game Action */}
+            <button
+              id="btn-create-start-game"
+              type="submit"
+              disabled={!playerName.trim()}
+              className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 hover:from-amber-400 hover:to-amber-300 disabled:hover:from-amber-500 disabled:hover:to-amber-500 text-slate-950 font-black text-base transition shadow-xl shadow-amber-500/20 active:scale-[0.99] disabled:active:scale-100 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center gap-2"
+            >
+              <Play className="w-5 h-5 fill-current" />
+              <span>Launch Game</span>
+            </button>
+          </form>
+        )}
+
+        {/* Join Room Tab */}
+        {activeTab === 'join' && (
+          <form onSubmit={handleJoin} className="space-y-4">
+            <div className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800 space-y-3">
+              <label className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-300">
+                <LogIn className="w-4 h-4 text-amber-400" />
+                Enter Room Code
+              </label>
+              <input
+                type="text"
+                value={joinRoomInput}
+                onChange={(e) => setJoinRoomInput(e.target.value)}
+                placeholder="e.g. B2-9481"
+                className="w-full px-4 py-3 rounded-xl bg-slate-900 border border-slate-700 text-lg text-slate-100 text-center focus:outline-none focus:border-amber-400 font-mono uppercase tracking-widest placeholder:text-slate-600"
+                autoFocus={activeTab === 'join'}
+              />
+            </div>
+
+            <button
+              id="btn-join-room"
+              type="submit"
+              disabled={!joinRoomInput.trim() || !playerName.trim()}
+              className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 hover:from-amber-400 hover:to-amber-300 disabled:hover:from-amber-500 disabled:hover:to-amber-500 text-slate-950 font-black text-base transition shadow-xl shadow-amber-500/20 active:scale-[0.99] disabled:active:scale-100 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center gap-2"
+            >
+              <LogIn className="w-5 h-5" />
+              Join Room
+            </button>
+          </form>
+        )}
       </div>
     </div>
   );

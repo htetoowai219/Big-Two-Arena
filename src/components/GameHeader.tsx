@@ -12,6 +12,7 @@ interface GameHeaderProps {
   onLeaveRoom: () => void;
   onRestartRound: () => void;
   isHost: boolean;
+  isHomepage?: boolean;
 }
 
 export const GameHeader: React.FC<GameHeaderProps> = ({
@@ -24,6 +25,7 @@ export const GameHeader: React.FC<GameHeaderProps> = ({
   onLeaveRoom,
   onRestartRound,
   isHost,
+  isHomepage = false,
 }) => {
   const [isMuted, setIsMuted] = useState(sound.getMuted());
   const [copied, setCopied] = useState(false);
@@ -49,18 +51,20 @@ export const GameHeader: React.FC<GameHeaderProps> = ({
           <span className="hidden min-[400px]:inline">BIG TWO</span>
         </div>
 
-        <div className="h-4 w-px bg-slate-700 hidden sm:block" />
+        {!isHomepage && <div className="h-4 w-px bg-slate-700 hidden sm:block" />}
 
         {/* Room Code Badge */}
-        <button
-          onClick={copyRoomCode}
-          className="flex items-center gap-1.5 px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-mono text-slate-300 transition cursor-pointer max-w-[110px] sm:max-w-none truncate"
-          title="Click to copy Room Code"
-        >
-          <span className="text-slate-400 hidden xs:inline">Room:</span>
-          <span className="font-bold text-amber-300 truncate">{roomId}</span>
-          {copied ? <Check className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" /> : <Copy className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />}
-        </button>
+        {!isHomepage && (
+          <button
+            onClick={copyRoomCode}
+            className="flex items-center gap-1.5 px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-mono text-slate-300 transition cursor-pointer max-w-[110px] sm:max-w-none truncate"
+            title="Click to copy Room Code"
+          >
+            <span className="text-slate-400 hidden xs:inline">Room:</span>
+            <span className="font-bold text-amber-300 truncate">{roomId}</span>
+            {copied ? <Check className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" /> : <Copy className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />}
+          </button>
+        )}
 
         {roundNumber > 0 && (
           <span className="hidden sm:inline-block px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-800/60 text-xs font-semibold">
@@ -119,13 +123,15 @@ export const GameHeader: React.FC<GameHeaderProps> = ({
           <HelpCircle className="w-4 h-4" />
         </button>
 
-        <button
-          onClick={onLeaveRoom}
-          className="p-1.5 sm:p-2 rounded-xl bg-slate-800 hover:bg-rose-950/80 text-slate-400 hover:text-rose-300 border border-slate-700 hover:border-rose-800 transition cursor-pointer"
-          title="Leave Room & Back to Lobby"
-        >
-          <LogOut className="w-4 h-4" />
-        </button>
+        {!isHomepage && (
+          <button
+            onClick={onLeaveRoom}
+            className="p-1.5 sm:p-2 rounded-xl bg-slate-800 hover:bg-rose-950/80 text-slate-400 hover:text-rose-300 border border-slate-700 hover:border-rose-800 transition cursor-pointer"
+            title="Leave Room & Back to Lobby"
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
+        )}
       </div>
     </header>
   );
