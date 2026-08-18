@@ -29,6 +29,7 @@ const THEMES = [
   { id: 'default', name: 'Classic', ext: 'svg' },
   { id: 'pixel', name: 'Pixel', ext: 'svg' },
   { id: 'cute', name: 'Cute', ext: 'svg' },
+  { id: 'classy', name: 'Classy', ext: 'svg' },
 ];
 
 const RED = ['hearts', 'diamonds'];
@@ -53,6 +54,14 @@ const CUTE_PALETTE = {
   red: '#ff6b9d',
   black: '#7ccb7a',
   stroke: '#ffd9e6',
+};
+
+const CLASSY_PALETTE = {
+  bg: '#722F37',
+  border: '#D4AF37',
+  red: '#FFD700',
+  black: '#1a1a2e',
+  stroke: '#B8860B',
 };
 
 function cardSvg(rank, suit, palette = null) {
@@ -313,7 +322,9 @@ for (const theme of THEMES) {
       ? (rank, suit) => pixelCardSvg(rank, suit, theme.id)
       : theme.id === 'cute'
         ? (rank, suit) => cardSvg(rank, suit, CUTE_PALETTE)
-        : cardSvg;
+        : theme.id === 'classy'
+          ? (rank, suit) => cardSvg(rank, suit, CLASSY_PALETTE)
+          : cardSvg;
   for (const rank of RANKS) {
     for (const suit of SUITS) {
       const file = join(dir, `${rank}_of_${suit}.${theme.ext}`);
