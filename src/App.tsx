@@ -571,6 +571,7 @@ export default function App() {
             onLeaveRoom={handleReturnToLobby}
             onRestartRound={() => {}}
             isHost={true}
+            isHomepage={true}
           />
 
           <div className="flex-1 flex items-center justify-center py-6 px-3">
@@ -594,6 +595,19 @@ export default function App() {
             isOpen={isRulesModalOpen}
             onClose={() => setIsRulesModalOpen(false)}
           />
+
+          {/* Footer */}
+          <footer className="py-4 text-center text-xs text-slate-500">
+            Created by{' '}
+            <a
+              href="https://github.com/htetoowai219/Big-Two-Arena"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-slate-400 hover:text-amber-400 transition underline underline-offset-2"
+            >
+              Htet Oo Wai
+            </a>
+          </footer>
         </main>
       </CardThemeProvider>
     );
